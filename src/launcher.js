@@ -4,6 +4,7 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { readProfile } from './config.js';
 import { listenProxy } from './proxy.js';
+import { shellQuote } from './shell.js';
 
 export async function runClaude(profileName, args = [], options = {}) {
   const env = options.env || process.env;
@@ -26,11 +27,13 @@ export async function runClaude(profileName, args = [], options = {}) {
     },
     model: 'opus',
     autoCompactWindow: profile.context_window,
-    statusLine: { type: 'command', command: `node ${statuslineScript} statusline` }
+    statusLine: { type: 'command', command: `node ${shellQuote(statuslineScript)} statusline` }
   };
   await fs.writeFile(settingsPath, `${JSON.stringify(generated, null, 2)}\n`, { mode: 0o600 });
-  return await new Promise((resolve) => {
+  return await new Promise((resolve, reject) => {
+    const cleanup = async () => { proxy.server.close(); await fs.rm(tmp, { recursive: true, force: true }); };
     const child = spawn(options.claudeBin || 'claude', ['--setting-sources', 'project,local', '--settings', settingsPath, '--model', 'opus', ...args], { stdio: 'inherit', env: { ...env, ...generated.env } });
-    child.on('exit', async (code) => { proxy.server.close(); await fs.rm(tmp, { recursive: true, force: true }); resolve(code || 0); });
+    child.on('error', async (error) => { await cleanup(); reject(error); });
+    child.on('exit', async (code) => { await cleanup(); resolve(code || 0); });
   });
 }

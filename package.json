@@ -3,14 +3,40 @@
   "version": "0.1.0",
   "description": "Safe local custom-provider kit for Claude Code: profiles, Anthropic-compatible proxy, diagnostics, and statusline truth.",
   "type": "module",
-  "bin": { "cpk": "bin/cpk.js" },
+  "bin": {
+    "cpk": "bin/cpk.js"
+  },
   "scripts": {
     "test": "node --test",
     "lint": "node --check bin/cpk.js && find src test -name '*.js' -print0 | xargs -0 -n1 node --check",
     "smoke": "node bin/cpk.js --help >/dev/null && npm test"
   },
-  "keywords": ["claude-code", "anthropic", "openai", "proxy", "llm", "custom-provider"],
+  "keywords": [
+    "claude-code",
+    "anthropic",
+    "openai",
+    "proxy",
+    "llm",
+    "custom-provider"
+  ],
   "author": "seilk",
   "license": "MIT",
-  "engines": { "node": ">=20" }
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/seilk/claude-provider-kit.git"
+  },
+  "bugs": {
+    "url": "https://github.com/seilk/claude-provider-kit/issues"
+  },
+  "homepage": "https://github.com/seilk/claude-provider-kit#readme",
+  "files": [
+    "bin",
+    "src",
+    "README.md",
+    "LICENSE",
+    "docs"
+  ]
 }
