@@ -1,4 +1,5 @@
-import { initConfig, writeProfile, listProfiles, readProfile, sanitizeProfile } from './config.js';
+import fs from 'node:fs/promises';
+import { initConfig, writeProfile, listProfiles, readProfile, sanitizeProfile, formatProfileDocument, readProfileFile } from './config.js';
 import { listenProxy } from './proxy.js';
 import { doctor, routeTest } from './doctor.js';
 import { readState } from './state.js';
@@ -11,9 +12,11 @@ const help = `claude-provider-kit (cpk)
 Commands:
   init
   profile create <name> --base-url URL --model MODEL --key-env ENV [--visible-model MODEL]
-  profile create <name> --provider ID --model MODEL [--key-env ENV] [--visible-model MODEL]
+  profile create <name> --provider ID --model MODEL [--key-env ENV] [--visible-model MODEL] [--format json|yaml]
   profile list
-  profile show <name>
+  profile show <name> [--format json|yaml]
+  profile export <name> [--format json|yaml] [--output FILE]
+  profile import <file> [--name NAME] [--format json|yaml]
   providers
   serve <profile> [--port PORT] [--show-token]
   run <profile> [-- ...claude args]
@@ -41,12 +44,40 @@ export async function main(argv) {
 async function profileCommand(argv) {
   const [sub, name, ...rest] = argv;
   if (sub === 'list') { for (const p of await listProfiles()) console.log(p); return; }
-  if (sub === 'show') { console.log(JSON.stringify(sanitizeProfile(await readProfile(name)), null, 2)); return; }
+  if (sub === 'show') return showProfileCommand(name, rest);
+  if (sub === 'export') return exportProfileCommand(name, rest);
+  if (sub === 'import') return importProfileCommand(name, rest);
   if (sub !== 'create') throw new Error('usage: cpk profile create <name> --base-url URL --model MODEL --key-env ENV [--visible-model MODEL]');
-  const opts = parseFlags(rest, new Set(['base-url', 'provider', 'model', 'key-env', 'visible-model', 'context-window', 'max-output-tokens']));
+  const opts = parseFlags(rest, new Set(['base-url', 'provider', 'model', 'key-env', 'visible-model', 'context-window', 'max-output-tokens', 'format']));
   if (!opts.provider && !opts['base-url']) throw new Error('missing --base-url or --provider');
-  const profile = await writeProfile({ name, provider: opts.provider, visible_model: opts['visible-model'] || 'claude-opus-4-7', context_window: opts['context-window'] || 200000, max_output_tokens: opts['max-output-tokens'] || 8192, upstream: { base_url: opts['base-url'], model: required(opts, 'model'), api_key_env: opts['key-env'] } });
+  const profile = await writeProfile({ name, provider: opts.provider, visible_model: opts['visible-model'] || 'claude-opus-4-7', context_window: opts['context-window'] || 200000, max_output_tokens: opts['max-output-tokens'] || 8192, upstream: { base_url: opts['base-url'], model: required(opts, 'model'), api_key_env: opts['key-env'] } }, process.env, { format: opts.format || 'json' });
   console.log(`Created profile ${profile.name}`);
+}
+
+async function showProfileCommand(name, argv) {
+  if (!name) throw new Error('usage: cpk profile show <name> [--format json|yaml]');
+  const opts = parseFlags(argv, new Set(['format']));
+  const format = opts.format || 'json';
+  process.stdout.write(formatProfileDocument(sanitizeProfile(await readProfile(name)), format));
+}
+
+async function exportProfileCommand(name, argv) {
+  if (!name) throw new Error('usage: cpk profile export <name> [--format json|yaml] [--output FILE]');
+  const opts = parseFlags(argv, new Set(['format', 'output']));
+  const text = formatProfileDocument(sanitizeProfile(await readProfile(name)), opts.format || 'json');
+  if (opts.output) {
+    await fs.writeFile(opts.output, text, { mode: 0o600 });
+    await fs.chmod(opts.output, 0o600).catch(() => {});
+  } else process.stdout.write(text);
+}
+
+async function importProfileCommand(file, argv) {
+  if (!file) throw new Error('usage: cpk profile import <file> [--name NAME] [--format json|yaml]');
+  const opts = parseFlags(argv, new Set(['name', 'format']));
+  const imported = await readProfileFile(file);
+  const profile = { ...imported, name: opts.name || imported.name };
+  await writeProfile(profile, process.env, { format: opts.format || 'json' });
+  console.log(`Imported profile ${profile.name}`);
 }
 
 function providersCommand() {

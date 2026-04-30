@@ -25,6 +25,7 @@ cpk init
 cpk profile create letsur \
   --provider letsur \
   --model gpt-5.5 \
+  --format yaml \
   --visible-model claude-opus-4-7
 
 cpk doctor letsur
@@ -55,6 +56,8 @@ cpk providers               List built-in provider presets
 cpk profile create          Create a provider profile
 cpk profile list            List profiles
 cpk profile show            Show a profile with inline secrets redacted
+cpk profile export          Export a profile as JSON or YAML
+cpk profile import          Import a profile from JSON or YAML
 cpk serve                   Start a local proxy for manual integration
 cpk run                     Launch Claude Code through a profile
 cpk doctor                  Validate profile/config basics
@@ -63,6 +66,49 @@ cpk status                  Show last observed proxy state
 ```
 
 `cpk serve` hides the local bearer token by default. Use `--show-token` only for manual debugging.
+
+## Managing profiles as JSON or YAML
+
+Profiles are plain files under:
+
+```text
+~/.config/claude-provider-kit/profiles/
+```
+
+CPK reads either `.json`, `.yaml`, or `.yml` profiles. JSON is the default, but YAML is often nicer for hand-editing:
+
+```bash
+cpk profile create letsur --provider letsur --model gpt-5.5 --format yaml
+cpk profile show letsur --format yaml
+cpk profile export letsur --format yaml --output letsur.yaml
+cpk profile import letsur.yaml --name letsur-copy --format json
+```
+
+Example YAML profile:
+
+```yaml
+name: letsur
+provider: letsur
+visible_model: claude-opus-4-7
+context_window: 1000000
+max_output_tokens: 8192
+upstream:
+  type: openai-chat-completions
+  base_url: https://gw.letsur.ai/v1
+  model: gpt-5.5
+  api_key_env: LETSUR_API_KEY
+capabilities:
+  streaming: true
+  tools: true
+  images: false
+  thinking: true
+  prompt_cache: false
+retry:
+  max_retries: 0
+  base_delay_ms: 250
+```
+
+The built-in YAML reader intentionally supports a small safe subset: nested mappings and scalar strings/numbers/booleans/null. It rejects arrays, anchors, aliases, and flow-style YAML instead of guessing. Secrets should still live in `secrets.env`; `profile show` and `profile export` redact inline `api_key` values.
 
 ## Supported MVP API subset
 

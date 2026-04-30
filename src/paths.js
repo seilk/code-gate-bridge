@@ -9,8 +9,9 @@ export function stateDir(env = process.env) {
   return env.CPK_STATE_DIR || path.join(os.homedir(), '.local', 'state', 'claude-provider-kit');
 }
 
-export function profilePath(name, env = process.env) {
-  return path.join(configDir(env), 'profiles', `${name}.json`);
+export function profilePath(name, env = process.env, extension = 'json') {
+  const ext = String(extension).replace(/^\./, '');
+  return path.join(configDir(env), 'profiles', `${name}.${ext}`);
 }
 
 export function secretsPath(env = process.env) {
