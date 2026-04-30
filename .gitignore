@@ -6,3 +6,4 @@ coverage/
 dist/
 .cpk-test-home/
 graphify-out/
+.openchrome/

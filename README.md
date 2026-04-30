@@ -90,6 +90,7 @@ Example YAML profile:
 name: letsur
 provider: letsur
 visible_model: claude-opus-4-7
+client_model: opus
 context_window: 1000000
 max_output_tokens: 8192
 upstream:
@@ -109,6 +110,8 @@ retry:
 ```
 
 The built-in YAML reader intentionally supports a small safe subset: nested mappings and scalar strings/numbers/booleans/null. It rejects arrays, anchors, aliases, and flow-style YAML instead of guessing. Secrets should still live in `secrets.env`; `profile show` and `profile export` redact inline `api_key` values.
+
+`visible_model` is the model ID CPK returns in Anthropic-compatible responses. `client_model` is the Claude Code selector passed to the Claude Code CLI, normally `opus`, so Claude Code accepts the launch while CPK routes to the real upstream model.
 
 ## Supported MVP API subset
 

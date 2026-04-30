@@ -19,16 +19,17 @@ export async function createProxy(profile, options = {}) {
   const server = http.createServer(async (req, res) => {
     let requestId = crypto.randomUUID();
     try {
-      if (req.method === 'GET' && req.url === '/health') return json(res, 200, { ok: true });
-      if ((req.method === 'HEAD' || req.method === 'OPTIONS') && req.url === '/v1/messages') {
+      const pathname = new URL(req.url || '/', `http://${host}`).pathname;
+      if (req.method === 'GET' && pathname === '/health') return json(res, 200, { ok: true });
+      if ((req.method === 'HEAD' || req.method === 'OPTIONS') && pathname === '/v1/messages') {
         if (!validAuth(req, token)) return json(res, 401, { error: { type: 'authentication_error', message: 'missing or invalid local proxy token' } });
         return noContent(res, { Allow: 'POST, HEAD, OPTIONS' });
       }
-      if (req.method === 'GET' && req.url === '/v1/models') {
+      if (req.method === 'GET' && pathname === '/v1/models') {
         if (!validAuth(req, token)) return json(res, 401, { error: { type: 'authentication_error', message: 'missing or invalid local proxy token' } });
-        return json(res, 200, { object: 'list', data: [{ id: profile.visible_model, object: 'model', owned_by: 'claude-provider-kit' }] });
+        return json(res, 200, { object: 'list', data: modelList(profile).map((id) => ({ id, object: 'model', owned_by: 'claude-provider-kit' })) });
       }
-      if (req.method !== 'POST' || req.url !== '/v1/messages') return json(res, 404, { error: { type: 'not_found', message: 'not found' } });
+      if (req.method !== 'POST' || pathname !== '/v1/messages') return json(res, 404, { error: { type: 'not_found', message: 'not found' } });
       if (!validAuth(req, token)) return json(res, 401, { error: { type: 'authentication_error', message: 'missing or invalid local proxy token' } });
       const raw = await readBody(req);
       const anthropic = JSON.parse(raw || '{}');
@@ -99,6 +100,10 @@ export async function listenProxy(profile, options = {}) {
   await new Promise((resolve) => proxy.server.listen(proxy.port, proxy.host, resolve));
   const address = proxy.server.address();
   return { ...proxy, url: `http://${proxy.host}:${address.port}` };
+}
+
+function modelList(profile) {
+  return [...new Set([profile.client_model || 'opus', profile.visible_model].filter(Boolean))];
 }
 
 function validAuth(req, token) {

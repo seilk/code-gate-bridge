@@ -72,7 +72,7 @@ test('proxy supports Claude Code compatibility probes and model listing', async 
     const models = await fetch(`${proxy.url}/v1/models`, { headers: { 'x-api-key': 'local' } });
     assert.equal(models.status, 200);
     const data = await models.json();
-    assert.deepEqual(data.data.map((m) => m.id), ['claude-opus-4-7']);
+    assert.deepEqual(data.data.map((m) => m.id), ['opus', 'claude-opus-4-7']);
   } finally {
     proxy.server.close();
     upstream.server.close();
