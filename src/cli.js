@@ -20,7 +20,7 @@ Commands:
   providers
   serve <profile> [--port PORT] [--show-token]
   run <profile> [claude args]
-  <profile> [claude args]       Launch a profile directly, e.g. cpk letsur-gpt55 --bare
+  <profile> [claude args]       Launch a profile directly, e.g. cpk letsur-gpt-5.5 --bare
   doctor <profile>
   route-test <profile> [--prompt TEXT]
   status

@@ -36,17 +36,17 @@ cpk letsur --bare
 
 `letsur` is only an example profile name. Any provider exposing OpenAI-compatible `/v1/chat/completions` can be used by changing `--base-url`, `--model`, and `--key-env`.
 
-For multiple models on the same provider, create separate profiles and run them directly:
+For multiple models on the same provider, create separate profiles named from the provider-recognized upstream model string:
 
 ```bash
-cpk profile create letsur-gpt55 --provider letsur --model gpt-5.5 --format yaml
-cpk profile create letsur-gemini3-flash --provider letsur --model gemini-3-flash-preview --format yaml
+cpk profile create letsur-gpt-5.5 --provider letsur --model gpt-5.5 --format yaml
+cpk profile create letsur-gemini-3-flash-preview --provider letsur --model gemini-3-flash-preview --format yaml
 
-cpk letsur-gpt55 --bare
-cpk letsur-gemini3-flash --bare
+cpk letsur-gpt-5.5 --bare
+cpk letsur-gemini-3-flash-preview --bare
 ```
 
-The direct `cpk <profile>` form is native CPK behavior, not a shell alias. Claude Code flags are forwarded as-is, so `cpk letsur-gpt55 --bare -p "hi"` works without the `--` separator.
+The direct `cpk <profile>` form is native CPK behavior, not a shell alias. Claude Code flags are forwarded as-is, so `cpk letsur-gpt-5.5 --bare -p "hi"` works without the `--` separator. Prefer profile names in the form `<provider>-<upstream-model>`, preserving provider-recognized model names such as `gpt-5.5` or `gemini-3-flash-preview` for consistency.
 
 ## What this changes on your machine
 
