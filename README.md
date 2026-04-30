@@ -113,6 +113,15 @@ The built-in YAML reader intentionally supports a small safe subset: nested mapp
 
 `visible_model` is the model ID CPK returns in Anthropic-compatible responses. `client_model` is the Claude Code selector passed to the Claude Code CLI, normally `opus`, so Claude Code accepts the launch while CPK routes to the real upstream model.
 
+## Claude Code display behavior
+
+Claude Code owns the top welcome-box model/billing text. CPK therefore uses two display channels:
+
+- Claude Code header: launched with the accepted `client_model` selector, but `ANTHROPIC_DEFAULT_OPUS_MODEL` is set from `visible_model`, so current Claude Code builds render names such as `Opus 4.7`.
+- CPK status line: shows the real route, for example `CPK letsur → gpt-5.5 as claude-opus-4-7`.
+
+`cpk run` passes only `ANTHROPIC_AUTH_TOKEN` for the local proxy token, not `ANTHROPIC_API_KEY`, to avoid Claude Code's custom API-key confirmation prompt.
+
 ## Supported MVP API subset
 
 - `POST /v1/messages`
