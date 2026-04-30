@@ -129,12 +129,17 @@ The built-in YAML reader intentionally supports a small safe subset: nested mapp
 
 ## Claude Code display behavior
 
-Claude Code owns the top welcome-box model/billing text. CPK therefore uses two display channels:
-
-- Claude Code header: launched with the accepted `client_model` selector, but `ANTHROPIC_DEFAULT_OPUS_MODEL` is set from `visible_model`, so current Claude Code builds render names such as `Opus 4.7`.
-- CPK status line: shows the real route, for example `CPK letsur → gpt-5.5 as claude-opus-4-7`.
+Claude Code owns the top welcome-box model/billing text. CPK does not try to rewrite that header. CPK's source of truth is the status line, which shows the real route, for example `CPK letsur-gpt-5.5 → gpt-5.5 as claude-opus-4-7`.
 
 `cpk run` passes only `ANTHROPIC_AUTH_TOKEN` for the local proxy token, not `ANTHROPIC_API_KEY`, to avoid Claude Code's custom API-key confirmation prompt.
+
+To verify the interactive TUI path with tmux:
+
+```bash
+npm run test:tui -- letsur-gpt-5.5
+```
+
+This launches a real Claude Code TUI in a temporary tmux session, checks that the CPK route statusline appears, sends a prompt, verifies the expected reply, writes the final capture to `/tmp`, and closes the tmux session.
 
 ## Supported MVP API subset
 

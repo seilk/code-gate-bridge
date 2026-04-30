@@ -8,7 +8,8 @@
   },
   "scripts": {
     "test": "node --test",
-    "lint": "node --check bin/cpk.js && find src test -name '*.js' -print0 | xargs -0 -n1 node --check",
+    "test:tui": "node scripts/tui-smoke.mjs",
+    "lint": "node --check bin/cpk.js && find src test scripts \\( -name '*.js' -o -name '*.mjs' \\) -print0 | xargs -0 -n1 node --check",
     "smoke": "node bin/cpk.js --help >/dev/null && npm test"
   },
   "keywords": [
@@ -35,6 +36,7 @@
   "files": [
     "bin",
     "src",
+    "scripts",
     "README.md",
     "LICENSE",
     "docs"

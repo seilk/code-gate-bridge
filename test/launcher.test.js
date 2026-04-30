@@ -14,7 +14,7 @@ test('launcher separates Claude settings from process env and route display', ()
   assert.equal(settings.env.ANTHROPIC_AUTH_TOKEN, 'local-token');
   assert.equal(settings.env.ANTHROPIC_API_KEY, undefined);
   assert.equal(settings.env.ANTHROPIC_MODEL, 'opus');
-  assert.equal(settings.env.ANTHROPIC_DEFAULT_OPUS_MODEL, 'claude-opus-4-7');
+  assert.equal(settings.env.ANTHROPIC_DEFAULT_OPUS_MODEL, undefined);
   assert.equal(settings.env.CPK_DISPLAY_MODEL, 'CPK letsur → gpt-5.5 as claude-opus-4-7');
   assert.equal(settings.sessionName, 'CPK letsur → gpt-5.5 as claude-opus-4-7');
   assert.deepEqual(Object.keys(settings.settings).sort(), ['autoCompactWindow', 'statusLine']);

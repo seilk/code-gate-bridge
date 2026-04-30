@@ -32,7 +32,6 @@ export function buildClaudeSettings(profile, proxy, env = process.env) {
       ANTHROPIC_BASE_URL: proxy.url,
       ANTHROPIC_AUTH_TOKEN: proxy.token,
       ANTHROPIC_MODEL: claudeModelSelector,
-      ANTHROPIC_DEFAULT_OPUS_MODEL: profile.visible_model || claudeModelSelector,
       CLAUDE_CODE_AUTO_COMPACT_WINDOW: String(profile.context_window),
       CPK_DISPLAY_MODEL: routeDisplay,
       CPK_BASE_STATUSLINE_COMMAND: baseStatus
