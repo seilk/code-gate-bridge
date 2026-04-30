@@ -56,6 +56,10 @@ function hasRouteStatusline(screen, routePrefix) {
   return screen.split('\n').some((line) => line.trimStart().startsWith(`[${routePrefix}`));
 }
 
+function hasContextSegment(screen, routePrefix) {
+  return screen.split('\n').some((line) => line.trimStart().startsWith(`[${routePrefix}`) && line.includes(' ctx '));
+}
+
 function occurrenceCount(text, needle) {
   return text.split(needle).length - 1;
 }
@@ -79,12 +83,20 @@ try {
     fs.writeFileSync(capturePath, initial);
     throw new Error(`CPK route text was not rendered in the bottom statusline; capture saved to ${capturePath}`);
   }
+  if (!hasContextSegment(initial, routePrefix)) {
+    fs.writeFileSync(capturePath, initial);
+    throw new Error(`CPK statusline did not preserve context window usage; capture saved to ${capturePath}`);
+  }
 
   run('tmux', ['send-keys', '-t', session, `Reply exactly ${expected}`, 'Enter']);
   const finalScreen = await waitFor((screen) => occurrenceCount(screen, expected) >= 2, 'assistant reply', 60000);
   if (!hasRouteStatusline(finalScreen, routePrefix)) {
     fs.writeFileSync(capturePath, finalScreen);
     throw new Error(`CPK route text disappeared from the bottom statusline after reply; capture saved to ${capturePath}`);
+  }
+  if (!hasContextSegment(finalScreen, routePrefix)) {
+    fs.writeFileSync(capturePath, finalScreen);
+    throw new Error(`CPK context window usage disappeared after reply; capture saved to ${capturePath}`);
   }
   if (occurrenceCount(finalScreen, expected) < 2) {
     fs.writeFileSync(capturePath, finalScreen);

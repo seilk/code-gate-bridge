@@ -4,13 +4,13 @@ import { stripControls } from './redact.js';
 
 export async function renderStatusline(input, env = process.env) {
   const display = truncate(env.CPK_DISPLAY_MODEL || env.CCS_DISPLAY_MODEL || await observedModel(env));
+  const status = parseStatusInput(input);
+  const context = renderContextSegment(status?.context_window);
   let forwarded = input;
-  if (display) {
-    try {
-      const data = JSON.parse(input || '{}');
-      data.model = { ...(data.model && typeof data.model === 'object' ? data.model : {}), display_name: stripControls(display), id: stripControls(display) };
-      forwarded = JSON.stringify(data);
-    } catch {}
+  if (display && status) {
+    const data = { ...status };
+    data.model = { ...(data.model && typeof data.model === 'object' ? data.model : {}), display_name: stripControls(display), id: stripControls(display) };
+    forwarded = JSON.stringify(data);
   }
   const base = env.CPK_BASE_STATUSLINE_COMMAND || env.CCS_BASE_STATUSLINE_COMMAND;
   if (base) {
@@ -18,10 +18,10 @@ export async function renderStatusline(input, env = process.env) {
     if (depth > 2) return { stdout: '[cpk: statusline recursion]\n', stderr: '', status: 0 };
     const result = spawnSync('/bin/bash', ['-lc', base], { input: forwarded, encoding: 'utf8', env: { ...process.env, ...env, CPK_STATUSLINE_DEPTH: String(depth + 1) }, maxBuffer: 1024 * 1024, timeout: Number(env.CPK_STATUSLINE_TIMEOUT_MS || 1000) });
     if (result.error) return { stdout: `[cpk: statusline ${result.error.code || 'error'}]\n`, stderr: '', status: 0 };
-    return { stdout: mergeStatusline(display, result.stdout), stderr: result.stderr || '', status: result.status ?? 0 };
+    return { stdout: mergeStatusline(display, result.stdout, context), stderr: result.stderr || '', status: result.status ?? 0 };
   }
   const model = display || 'cpk: no route observed';
-  return { stdout: `[${model}]\n`, stderr: '', status: 0 };
+  return { stdout: mergeStatusline(model, '', context), stderr: '', status: 0 };
 }
 
 async function observedModel(env) {
@@ -32,14 +32,49 @@ async function observedModel(env) {
 }
 function truncate(value) { return stripControls(String(value || '')).slice(0, 80); }
 
-function mergeStatusline(display, baseOutput = '') {
+function mergeStatusline(display, baseOutput = '', context = '') {
   const cleanDisplay = stripControls(String(display || '')).trim();
   const firstLine = String(baseOutput || '').split(/\r?\n/)[0].trim();
-  if (!cleanDisplay) return firstLine ? `${firstLine}\n` : '';
-  const prefix = `[${cleanDisplay}]`;
+  const parts = [];
+  if (cleanDisplay) parts.push(`[${cleanDisplay}]`);
+  if (context) parts.push(context);
   const cleanFirstLine = stripControls(firstLine).trim();
-  if (!cleanFirstLine || cleanFirstLine === cleanDisplay || cleanFirstLine === prefix) return `${prefix}\n`;
-  return `${prefix} ${firstLine}\n`;
+  if (cleanFirstLine && cleanFirstLine !== cleanDisplay && cleanFirstLine !== `[${cleanDisplay}]` && cleanFirstLine !== context) parts.push(firstLine);
+  return `${parts.join(' ')}\n`;
+}
+
+function parseStatusInput(input) {
+  try {
+    const parsed = JSON.parse(input || '{}');
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch { return null; }
+}
+
+function renderContextSegment(context) {
+  if (!context || typeof context !== 'object') return '';
+  const pct = numeric(context.used_percentage ?? context.current_usage);
+  const inputTokens = numeric(context.total_input_tokens);
+  const outputTokens = numeric(context.total_output_tokens);
+  const windowSize = numeric(context.context_window_size);
+  const usedTokens = inputTokens + outputTokens;
+  const usedPct = Number.isFinite(pct) ? pct : (windowSize > 0 ? (usedTokens / windowSize) * 100 : NaN);
+  if (!Number.isFinite(usedPct) && !usedTokens && !windowSize) return '';
+  const pctText = Number.isFinite(usedPct) ? `${Math.max(0, Math.min(100, usedPct)).toFixed(1).replace(/\.0$/, '')}%` : '?%';
+  const tokensText = windowSize ? `${formatTokens(usedTokens)}/${formatTokens(windowSize)}` : '';
+  return tokensText ? `ctx ${pctText} ${tokensText}` : `ctx ${pctText}`;
+}
+
+function numeric(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : NaN;
+}
+
+function formatTokens(value) {
+  if (!Number.isFinite(value) || value < 0) return '?';
+  if (value === 0) return '0';
+  if (value >= 1000000) return `${Number((value / 1000000).toFixed(1)).toString()}M`;
+  if (value >= 1000) return `${Number((value / 1000).toFixed(1)).toString()}k`;
+  return String(Math.round(value));
 }
 
 export async function statuslineMain() {
