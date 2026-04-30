@@ -23,9 +23,8 @@ npm install -g .
 cpk init
 # Put LETSUR_API_KEY=... in ~/.config/claude-provider-kit/secrets.env
 cpk profile create letsur \
-  --base-url https://gw.letsur.ai/v1 \
+  --provider letsur \
   --model gpt-5.5 \
-  --key-env LETSUR_API_KEY \
   --visible-model claude-opus-4-7
 
 cpk doctor letsur
@@ -52,6 +51,7 @@ Creates local user files only:
 
 ```text
 cpk init                    Create config and secrets file
+cpk providers               List built-in provider presets
 cpk profile create          Create a provider profile
 cpk profile list            List profiles
 cpk profile show            Show a profile with inline secrets redacted
@@ -67,6 +67,8 @@ cpk status                  Show last observed proxy state
 ## Supported MVP API subset
 
 - `POST /v1/messages`
+- `GET /v1/models`
+- `HEAD /v1/messages` / `OPTIONS /v1/messages` compatibility probes
 - text input/output
 - non-streaming text
 - basic streaming text, tested only for text deltas

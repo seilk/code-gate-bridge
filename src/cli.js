@@ -4,14 +4,17 @@ import { doctor, routeTest } from './doctor.js';
 import { readState } from './state.js';
 import { runClaude } from './launcher.js';
 import { statuslineMain } from './statusline.js';
+import { listProviders } from './providers.js';
 
 const help = `claude-provider-kit (cpk)
 
 Commands:
   init
   profile create <name> --base-url URL --model MODEL --key-env ENV [--visible-model MODEL]
+  profile create <name> --provider ID --model MODEL [--key-env ENV] [--visible-model MODEL]
   profile list
   profile show <name>
+  providers
   serve <profile> [--port PORT] [--show-token]
   run <profile> [-- ...claude args]
   doctor <profile>
@@ -26,6 +29,7 @@ export async function main(argv) {
   if (cmd === 'statusline') return statuslineMain();
   if (cmd === 'init') { const r = await initConfig(); console.log(`Initialized ${r.configDir}`); return; }
   if (cmd === 'profile') return profileCommand(rest);
+  if (cmd === 'providers') return providersCommand();
   if (cmd === 'serve') return serveCommand(rest);
   if (cmd === 'run') return runCommand(rest);
   if (cmd === 'doctor') return doctorCommand(rest);
@@ -39,9 +43,16 @@ async function profileCommand(argv) {
   if (sub === 'list') { for (const p of await listProfiles()) console.log(p); return; }
   if (sub === 'show') { console.log(JSON.stringify(sanitizeProfile(await readProfile(name)), null, 2)); return; }
   if (sub !== 'create') throw new Error('usage: cpk profile create <name> --base-url URL --model MODEL --key-env ENV [--visible-model MODEL]');
-  const opts = parseFlags(rest, new Set(['base-url', 'model', 'key-env', 'visible-model', 'context-window', 'max-output-tokens']));
-  const profile = await writeProfile({ name, visible_model: opts['visible-model'] || 'claude-opus-4-7', context_window: opts['context-window'] || 200000, max_output_tokens: opts['max-output-tokens'] || 8192, upstream: { base_url: required(opts, 'base-url'), model: required(opts, 'model'), api_key_env: required(opts, 'key-env') }, capabilities: { streaming: true, tools: false } });
+  const opts = parseFlags(rest, new Set(['base-url', 'provider', 'model', 'key-env', 'visible-model', 'context-window', 'max-output-tokens']));
+  if (!opts.provider && !opts['base-url']) throw new Error('missing --base-url or --provider');
+  const profile = await writeProfile({ name, provider: opts.provider, visible_model: opts['visible-model'] || 'claude-opus-4-7', context_window: opts['context-window'] || 200000, max_output_tokens: opts['max-output-tokens'] || 8192, upstream: { base_url: opts['base-url'], model: required(opts, 'model'), api_key_env: opts['key-env'] } });
   console.log(`Created profile ${profile.name}`);
+}
+
+function providersCommand() {
+  for (const provider of listProviders()) {
+    console.log(`${provider.id}\t${provider.transport}\t${provider.credentialEnv || '(none)'}\t${provider.defaultBaseUrl || '(custom)'}`);
+  }
 }
 
 async function serveCommand(argv) {

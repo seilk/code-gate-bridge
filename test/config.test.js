@@ -15,3 +15,7 @@ test('profile roundtrip in isolated config dir', async () => {
 test('rejects unsafe profile names', async () => {
   await assert.rejects(() => writeProfile({ name: '../bad', visible_model: 'x', upstream: { base_url: 'https://x', model: 'm', api_key_env: 'K' } }, { CPK_CONFIG_DIR: '/tmp/cpk-x' }), /profile name/);
 });
+
+test('rejects invalid retry configuration', async () => {
+  await assert.rejects(() => writeProfile({ name: 'bad-retry', visible_model: 'x', upstream: { base_url: 'https://x', model: 'm', api_key_env: 'K' }, retry: { max_retries: 'nope' } }, { CPK_CONFIG_DIR: '/tmp/cpk-x' }), /retry\.max_retries/);
+});

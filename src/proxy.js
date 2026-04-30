@@ -20,6 +20,14 @@ export async function createProxy(profile, options = {}) {
     let requestId = crypto.randomUUID();
     try {
       if (req.method === 'GET' && req.url === '/health') return json(res, 200, { ok: true });
+      if ((req.method === 'HEAD' || req.method === 'OPTIONS') && req.url === '/v1/messages') {
+        if (!validAuth(req, token)) return json(res, 401, { error: { type: 'authentication_error', message: 'missing or invalid local proxy token' } });
+        return noContent(res, { Allow: 'POST, HEAD, OPTIONS' });
+      }
+      if (req.method === 'GET' && req.url === '/v1/models') {
+        if (!validAuth(req, token)) return json(res, 401, { error: { type: 'authentication_error', message: 'missing or invalid local proxy token' } });
+        return json(res, 200, { object: 'list', data: [{ id: profile.visible_model, object: 'model', owned_by: 'claude-provider-kit' }] });
+      }
       if (req.method !== 'POST' || req.url !== '/v1/messages') return json(res, 404, { error: { type: 'not_found', message: 'not found' } });
       if (!validAuth(req, token)) return json(res, 401, { error: { type: 'authentication_error', message: 'missing or invalid local proxy token' } });
       const raw = await readBody(req);
@@ -32,7 +40,7 @@ export async function createProxy(profile, options = {}) {
       const timer = setTimeout(() => controller.abort(), timeoutMs);
       let upstream;
       try {
-        upstream = await fetch(`${profile.upstream.base_url}/chat/completions`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` }, body: JSON.stringify(upstreamBody), signal: controller.signal });
+        upstream = await fetchWithRetry(profile, upstreamBody, apiKey, controller.signal);
       } finally {
         clearTimeout(timer);
       }
@@ -55,6 +63,37 @@ export async function createProxy(profile, options = {}) {
   return { server, token, host, port };
 }
 
+async function fetchWithRetry(profile, upstreamBody, apiKey, signal) {
+  const maxRetries = Math.max(0, Number(profile.retry?.max_retries || 0));
+  const baseDelayMs = Math.max(0, Number(profile.retry?.base_delay_ms ?? 250));
+  let attempt = 0;
+  while (true) {
+    const response = await fetch(`${profile.upstream.base_url}/chat/completions`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` }, body: JSON.stringify(upstreamBody), signal });
+    if (response.status !== 429 || attempt >= maxRetries || upstreamBody.stream) return response;
+    const retryAfter = parseRetryAfter(response.headers.get('retry-after'));
+    await response.arrayBuffer().catch(() => {});
+    await delay(retryAfter ?? baseDelayMs * (2 ** attempt), signal);
+    attempt += 1;
+  }
+}
+
+function parseRetryAfter(value) {
+  if (!value) return undefined;
+  const seconds = Number(value);
+  if (Number.isFinite(seconds)) return Math.max(0, seconds * 1000);
+  const date = Date.parse(value);
+  if (Number.isFinite(date)) return Math.max(0, date - Date.now());
+  return undefined;
+}
+
+function delay(ms, signal) {
+  if (ms <= 0) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(resolve, ms);
+    signal?.addEventListener('abort', () => { clearTimeout(timer); reject(new Error('upstream request timed out')); }, { once: true });
+  });
+}
+
 export async function listenProxy(profile, options = {}) {
   const proxy = await createProxy(profile, options);
   await new Promise((resolve) => proxy.server.listen(proxy.port, proxy.host, resolve));
@@ -70,4 +109,5 @@ function safeEqual(a, b) { const ab = Buffer.from(a); const bb = Buffer.from(b);
 function randomToken() { return `cpk-local-${crypto.randomBytes(32).toString('base64url')}`; }
 function readBody(req) { return new Promise((resolve, reject) => { let body=''; let bytes=0; req.setEncoding('utf8'); req.on('data', c => { bytes += Buffer.byteLength(c); if (bytes > MAX_BODY_BYTES) { req.destroy(); reject(new Error('request body too large')); return; } body += c; }); req.on('end', () => resolve(body)); req.on('error', reject); }); }
 function json(res, status, data) { res.writeHead(status, { 'Content-Type': 'application/json' }); res.end(`${JSON.stringify(data)}\n`); }
+function noContent(res, headers = {}) { res.writeHead(204, headers); res.end(); }
 async function pipeError(res, upstream) { const text = redact(await upstream.text()); res.writeHead(upstream.status, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: { type: 'upstream_error', status: upstream.status, message: text.slice(0, 2000) } })); }

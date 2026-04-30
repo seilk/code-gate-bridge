@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import path from 'node:path';
 import { configDir, profilePath, secretsPath, validateProfileName } from './paths.js';
+import { resolveProvider } from './providers.js';
 
 const SECRET_TEMPLATE = `# Put provider API keys here. Example:\n# LETSUR_API_KEY=sk-...\n`;
 
@@ -51,31 +52,51 @@ export async function listProfiles(env = process.env) {
 export function normalizeProfile(profile) {
   const name = validateProfileName(profile.name);
   const upstream = profile.upstream || {};
+  const providerId = profile.provider || upstream.provider || 'openai-compatible';
+  const provider = resolveProvider(providerId);
   const capabilities = profile.capabilities || {};
   if (!profile.visible_model) throw new Error('profile.visible_model is required');
-  const baseUrl = validateBaseUrl(upstream.base_url);
+  const baseUrl = validateBaseUrl(upstream.base_url || provider.defaultBaseUrl);
   if (!upstream.model) throw new Error('profile.upstream.model is required');
-  if (!upstream.api_key_env && !upstream.api_key) throw new Error('profile.upstream.api_key_env is required');
+  if (!upstream.api_key_env && !upstream.api_key && !provider.credentialEnv) throw new Error('profile.upstream.api_key_env is required');
   return {
     name,
+    provider: provider.id,
     visible_model: String(profile.visible_model),
     context_window: Number(profile.context_window || 200000),
     max_output_tokens: Number(profile.max_output_tokens || 8192),
     upstream: {
-      type: upstream.type || 'openai-chat-completions',
+      type: upstream.type || provider.transport,
       base_url: baseUrl,
       model: String(upstream.model),
-      api_key_env: upstream.api_key_env ? String(upstream.api_key_env) : undefined,
+      api_key_env: upstream.api_key_env ? String(upstream.api_key_env) : provider.credentialEnv,
       api_key: upstream.api_key ? String(upstream.api_key) : undefined
     },
-    capabilities: {
-      streaming: capabilities.streaming !== false,
-      tools: capabilities.tools !== false,
-      images: capabilities.images === true,
-      thinking: capabilities.thinking === true,
-      prompt_cache: capabilities.prompt_cache === true
-    }
+    capabilities: normalizeCapabilities(capabilities, provider.capabilities),
+    retry: normalizeRetry(profile.retry)
   };
+}
+
+function normalizeCapabilities(capabilities = {}, defaults = {}) {
+  return {
+    streaming: capabilities.streaming ?? defaults.streaming ?? true,
+    tools: capabilities.tools ?? defaults.tools ?? true,
+    images: capabilities.images ?? defaults.images ?? false,
+    thinking: capabilities.thinking ?? defaults.thinking ?? false,
+    prompt_cache: capabilities.prompt_cache ?? defaults.prompt_cache ?? false
+  };
+}
+
+function normalizeRetry(retry = {}) {
+  const maxRetries = validateNumber(retry.max_retries ?? 0, 'retry.max_retries', { integer: true, min: 0, max: 5 });
+  const baseDelayMs = validateNumber(retry.base_delay_ms ?? 250, 'retry.base_delay_ms', { integer: true, min: 0, max: 30000 });
+  return { max_retries: maxRetries, base_delay_ms: baseDelayMs };
+}
+
+function validateNumber(value, name, { integer = false, min = -Infinity, max = Infinity } = {}) {
+  const number = Number(value);
+  if (!Number.isFinite(number) || (integer && !Number.isInteger(number)) || number < min || number > max) throw new Error(`${name} must be a finite ${integer ? 'integer' : 'number'} between ${min} and ${max}`);
+  return number;
 }
 
 export function sanitizeProfile(profile) {

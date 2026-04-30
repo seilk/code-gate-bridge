@@ -6,7 +6,9 @@ const SECRET_PATTERNS = [
 
 export function redact(value) {
   let text = typeof value === 'string' ? value : JSON.stringify(value);
-  for (const pattern of SECRET_PATTERNS) text = text.replace(pattern, (_m, a, b) => a ? `${a}${b}[REDACTED]` : '[REDACTED]');
+  text = text.replace(/Bearer\s+[A-Za-z0-9._~+/=-]+/gi, 'Bearer [REDACTED]');
+  text = text.replace(/sk-[A-Za-z0-9._-]+/g, '[REDACTED]');
+  text = text.replace(/(api[_-]?key|auth[_-]?token|authorization)(["'\s:=]+)([^"'\s,}]+)/gi, '$1$2[REDACTED]');
   return text;
 }
 
