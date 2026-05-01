@@ -1,12 +1,13 @@
 import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import path from 'node:path';
-import { configDir, profilePath, secretsPath, validateProfileName } from './paths.js';
+import { configDir, legacyConfigDir, profilePath, secretsPath, validateProfileName } from './paths.js';
 import { resolveProvider } from './providers.js';
 
 const SECRET_TEMPLATE = `# Put provider API keys here. Example:\n# CUSTOM_PROVIDER_API_KEY=...\n`;
 
 export async function ensureDirs(env = process.env) {
+  await migrateLegacyConfig(env);
   await fs.mkdir(path.join(configDir(env), 'profiles'), { recursive: true, mode: 0o700 });
   try { await fs.chmod(configDir(env), 0o700); } catch {}
 }
@@ -35,6 +36,7 @@ export async function writeProfile(profile, env = process.env, options = {}) {
 
 export async function readProfile(name, env = process.env) {
   validateProfileName(name);
+  await migrateLegacyConfig(env);
   const p = await resolveStoredProfilePath(name, env);
   const raw = await fs.readFile(p, 'utf8');
   try { await fs.chmod(p, 0o600); } catch {}
@@ -237,6 +239,17 @@ function formatYamlScalar(value) {
   return text;
 }
 
+async function migrateLegacyConfig(env = process.env) {
+  if (env.CGB_CONFIG_DIR || env.CPK_CONFIG_DIR) return;
+  const current = configDir(env);
+  const legacy = legacyConfigDir(env);
+  if (!fsSync.existsSync(legacy)) return;
+  await fs.mkdir(current, { recursive: true, mode: 0o700 });
+  await fs.cp(legacy, current, { recursive: true, force: false, errorOnExist: false });
+  try { await fs.chmod(current, 0o700); } catch {}
+  try { await fs.chmod(path.join(current, 'secrets.env'), 0o600); } catch {}
+}
+
 export function validateBaseUrl(value) {
   if (!value) throw new Error('profile.upstream.base_url is required');
   let url;
@@ -268,6 +281,7 @@ export async function loadEnvFile(file) {
 export async function resolveApiKey(profile, env = process.env) {
   if (profile.upstream.api_key) return profile.upstream.api_key;
   const keyName = profile.upstream.api_key_env;
+  await migrateLegacyConfig(env);
   const fileEnv = await loadEnvFile(secretsPath(env));
   const key = env[keyName] || fileEnv[keyName];
   if (!key) throw new Error(`missing API key env ${keyName}; set it in environment or ${secretsPath(env)}`);

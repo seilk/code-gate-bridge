@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { initConfig, writeProfile, readProfile, readProfileFile, writeProfileFile, formatProfileDocument, parseProfileDocument, listProfiles } from '../src/config.js';
+import { initConfig, writeProfile, readProfile, readProfileFile, writeProfileFile, formatProfileDocument, parseProfileDocument, listProfiles, resolveApiKey } from '../src/config.js';
+import { configDir } from '../src/paths.js';
 
 test('profile roundtrip in isolated config dir', async () => {
   const dir = await fs.mkdtemp('/tmp/cgb-config-');
@@ -22,6 +23,22 @@ test('CGB can read profiles from legacy CPK_CONFIG_DIR during rename transition'
   const p = await readProfile('legacy', env);
   assert.equal(p.upstream.model, 'gpt-4.1');
   assert.deepEqual(await listProfiles(env), ['legacy']);
+});
+
+test('CGB migrates default legacy claude-provider-kit config into code-gate-bridge', async () => {
+  const home = await fs.mkdtemp('/tmp/cgb-home-migrate-');
+  const legacy = path.join(home, '.config', 'claude-provider-kit');
+  const current = path.join(home, '.config', 'code-gate-bridge');
+  await fs.mkdir(path.join(legacy, 'profiles'), { recursive: true });
+  await fs.writeFile(path.join(legacy, 'secrets.env'), 'CUSTOM_PROVIDER_API_KEY=legacy-secret\n', { mode: 0o600 });
+  await fs.writeFile(path.join(legacy, 'profiles', 'legacy.yaml'), 'name: legacy\nprovider: openai-compatible\nvisible_model: claude-opus-4-7\nupstream:\n  base_url: https://api.example.com/v1\n  model: gpt-4.1\n  api_key_env: CUSTOM_PROVIDER_API_KEY\n', { mode: 0o600 });
+
+  const env = { HOME: home };
+  const profile = await readProfile('legacy', env);
+  assert.equal(profile.upstream.model, 'gpt-4.1');
+  assert.equal(configDir(env), current);
+  assert.equal(await fs.readFile(path.join(current, 'secrets.env'), 'utf8'), 'CUSTOM_PROVIDER_API_KEY=legacy-secret\n');
+  assert.equal(await resolveApiKey(profile, env), 'legacy-secret');
 });
 
 test('rejects unsafe profile names', async () => {
