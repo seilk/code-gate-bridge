@@ -72,5 +72,5 @@ test('CLI launches a profile directly without shell aliases or -- separator', as
   assert.equal(observed.auth, 'set');
   assert.equal(observed.apiKey, null);
   assert.match(observed.baseUrl, /^http:\/\/127\.0\.0\.1:/);
-  assert.equal(observed.display, 'CGB gateway-gpt-4.1 → gpt-4.1 as claude-opus-4-7');
+  assert.equal(observed.display, 'CGB gateway-gpt-4.1 → gpt-4.1');
 });

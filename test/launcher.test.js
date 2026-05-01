@@ -18,7 +18,7 @@ test('launcher separates Claude settings from process env and route display', ()
   assert.equal(settings.env.ANTHROPIC_API_KEY, undefined);
   assert.equal(settings.env.ANTHROPIC_MODEL, 'opus');
   assert.equal(settings.env.ANTHROPIC_DEFAULT_OPUS_MODEL, undefined);
-  assert.equal(settings.env.CGB_DISPLAY_MODEL, 'CGB gateway → gpt-4.1 as claude-opus-4-7');
+  assert.equal(settings.env.CGB_DISPLAY_MODEL, 'CGB gateway → gpt-4.1');
   assert.equal(settings.sessionName, undefined);
   assert.deepEqual(Object.keys(settings.settings).sort(), ['autoCompactWindow', 'statusLine']);
   assert.equal(settings.settings.statusLine.padding, 0);

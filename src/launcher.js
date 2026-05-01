@@ -64,6 +64,5 @@ export async function readUserStatusLineCommand(env = process.env) {
 
 function routeLabel(profile) {
   const upstream = profile.upstream?.model || 'upstream';
-  const visible = profile.visible_model || profile.client_model || 'claude';
-  return `CGB ${profile.name} → ${upstream} as ${visible}`;
+  return `CGB ${profile.name} → ${upstream}`;
 }

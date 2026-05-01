@@ -37,8 +37,9 @@ function mergeStatusline(display, baseOutput = '', context = '') {
   const cleanDisplay = stripControls(String(display || '')).trim();
   const rawBaseLines = String(baseOutput || '').split(/\r?\n/).map((line) => line.trimEnd()).filter((line) => line.trim());
   const contextReplacement = context ? contextLineForBase(context) : '';
-  const baseHadContext = rawBaseLines.some((line) => isContextLine(line));
-  const baseLines = contextReplacement ? rawBaseLines.map((line) => replaceContextLine(line, contextReplacement, context)) : rawBaseLines;
+  const normalizedBaseLines = rawBaseLines.map((line) => stripCompatibilityModelBadge(line));
+  const baseHadContext = normalizedBaseLines.some((line) => isContextLine(line));
+  const baseLines = contextReplacement ? normalizedBaseLines.map((line) => replaceContextLine(line, contextReplacement, context)) : normalizedBaseLines;
   const firstLine = baseLines[0] || '';
   const remainingLines = baseLines.slice(1);
   const parts = [];
@@ -50,6 +51,12 @@ function mergeStatusline(display, baseOutput = '', context = '') {
   if (cleanFirstLine && cleanFirstLine !== cleanDisplay && cleanFirstLine !== prefix && cleanFirstLine !== context) parts.push(firstLine.trim());
   const lines = [parts.join(' '), ...remainingLines].filter((line) => line.trim());
   return `${lines.join('\n')}\n`;
+}
+
+function stripCompatibilityModelBadge(line) {
+  const clean = stripControls(line).trim();
+  const match = clean.match(/^\[(?!CGB\b)(?:Opus|Sonnet|Haiku|Claude)\b[^\]]*\]\s*(?:[│|]\s*)?(.*)$/i);
+  return match ? match[1] : line;
 }
 
 function isContextLine(line) {
