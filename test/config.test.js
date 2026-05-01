@@ -49,6 +49,17 @@ test('rejects invalid retry configuration', async () => {
   await assert.rejects(() => writeProfile({ name: 'bad-retry', visible_model: 'x', upstream: { base_url: 'https://x', model: 'm', api_key_env: 'K' }, retry: { max_retries: 'nope' } }, { CGB_CONFIG_DIR: '/tmp/cgb-x' }), /retry\.max_retries/);
 });
 
+test('normalizes profile reasoning_effort', async () => {
+  const dir = await fs.mkdtemp('/tmp/cgb-effort-');
+  const env = { CGB_CONFIG_DIR: dir };
+  await writeProfile({ name: 'effort', visible_model: 'claude-opus-4-7', reasoning_effort: 'xhigh', upstream: { base_url: 'https://api.example.com/v1', model: 'gpt-5.5', api_key_env: 'CUSTOM_PROVIDER_API_KEY' } }, env, { format: 'yaml' });
+  const profile = await readProfile('effort', env);
+  assert.equal(profile.reasoning_effort, 'xhigh');
+  const stored = await fs.readFile(path.join(dir, 'profiles', 'effort.yaml'), 'utf8');
+  assert.match(stored, /reasoning_effort: xhigh/);
+  await assert.rejects(() => writeProfile({ name: 'bad-effort', visible_model: 'x', reasoning_effort: 'turbo', upstream: { base_url: 'https://x', model: 'm', api_key_env: 'K' } }, env), /profile\.reasoning_effort/);
+});
+
 test('parses and formats profile YAML safely', () => {
   const yaml = `
 name: gateway-gpt-4.1

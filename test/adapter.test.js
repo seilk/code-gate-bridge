@@ -17,6 +17,35 @@ test('requests streaming usage from OpenAI-compatible upstreams', () => {
   assert.deepEqual(out.stream_options, { include_usage: true });
 });
 
+test('uses profile reasoning_effort as OpenAI-compatible default', () => {
+  const out = anthropicToOpenAI({ model: 'claude-opus-4-7', messages: [{ role: 'user', content: 'hi' }] }, { ...profile, reasoning_effort: 'xhigh' });
+  assert.equal(out.reasoning_effort, 'xhigh');
+});
+
+test('maps Claude Code /effort output_config to reasoning_effort and overrides profile default', () => {
+  const out = anthropicToOpenAI({
+    model: 'claude-opus-4-7',
+    messages: [{ role: 'user', content: 'hi' }],
+    output_config: { effort: 'high' }
+  }, { ...profile, reasoning_effort: 'low' });
+  assert.equal(out.reasoning_effort, 'high');
+  assert.equal(out.output_config, undefined);
+});
+
+test('maps Claude Code /effort max to xhigh for OpenAI-compatible reasoning_effort', () => {
+  const out = anthropicToOpenAI({
+    model: 'claude-opus-4-7',
+    messages: [{ role: 'user', content: 'hi' }],
+    output_config: { effort: 'max' }
+  }, profile);
+  assert.equal(out.reasoning_effort, 'xhigh');
+});
+
+test('preserves direct request reasoning_effort when Claude Code sends it', () => {
+  const out = anthropicToOpenAI({ model: 'claude-opus-4-7', messages: [{ role: 'user', content: 'hi' }], reasoning_effort: 'medium' }, { ...profile, reasoning_effort: 'low' });
+  assert.equal(out.reasoning_effort, 'medium');
+});
+
 test('forwards Claude Code tool definitions to OpenAI-compatible upstream', () => {
   const out = anthropicToOpenAI({
     model: 'claude-opus-4-7',

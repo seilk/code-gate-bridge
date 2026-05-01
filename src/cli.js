@@ -11,8 +11,8 @@ const help = `code-gate-bridge (cgb)
 
 Commands:
   init
-  profile create <name> --base-url URL --model MODEL --key-env ENV [--visible-model MODEL]
-  profile create <name> --provider ID --model MODEL [--key-env ENV] [--visible-model MODEL] [--format json|yaml]
+  profile create <name> --base-url URL --model MODEL --key-env ENV [--visible-model MODEL] [--reasoning-effort LEVEL]
+  profile create <name> --provider ID --model MODEL [--key-env ENV] [--visible-model MODEL] [--reasoning-effort LEVEL] [--format json|yaml]
   profile list
   profile show <name> [--format json|yaml]
   profile export <name> [--format json|yaml] [--output FILE]
@@ -49,10 +49,10 @@ async function profileCommand(argv) {
   if (sub === 'show') return showProfileCommand(name, rest);
   if (sub === 'export') return exportProfileCommand(name, rest);
   if (sub === 'import') return importProfileCommand(name, rest);
-  if (sub !== 'create') throw new Error('usage: cgb profile create <name> --base-url URL --model MODEL --key-env ENV [--visible-model MODEL]');
-  const opts = parseFlags(rest, new Set(['base-url', 'provider', 'model', 'key-env', 'visible-model', 'context-window', 'max-output-tokens', 'format']));
+  if (sub !== 'create') throw new Error('usage: cgb profile create <name> --base-url URL --model MODEL --key-env ENV [--visible-model MODEL] [--reasoning-effort LEVEL]');
+  const opts = parseFlags(rest, new Set(['base-url', 'provider', 'model', 'key-env', 'visible-model', 'context-window', 'max-output-tokens', 'reasoning-effort', 'format']));
   if (!opts.provider && !opts['base-url']) throw new Error('missing --base-url or --provider');
-  const profile = await writeProfile({ name, provider: opts.provider, visible_model: opts['visible-model'] || 'claude-opus-4-7', context_window: opts['context-window'] || 200000, max_output_tokens: opts['max-output-tokens'] || 8192, upstream: { base_url: opts['base-url'], model: required(opts, 'model'), api_key_env: opts['key-env'] } }, process.env, { format: opts.format || 'json' });
+  const profile = await writeProfile({ name, provider: opts.provider, visible_model: opts['visible-model'] || 'claude-opus-4-7', context_window: opts['context-window'] || 200000, max_output_tokens: opts['max-output-tokens'] || 8192, ...(opts['reasoning-effort'] ? { reasoning_effort: opts['reasoning-effort'] } : {}), upstream: { base_url: opts['base-url'], model: required(opts, 'model'), api_key_env: opts['key-env'] } }, process.env, { format: opts.format || 'json' });
   console.log(`Created profile ${profile.name}`);
 }
 

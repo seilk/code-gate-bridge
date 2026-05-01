@@ -130,6 +130,7 @@ visible_model: claude-opus-4-7
 client_model: opus
 context_window: 200000
 max_output_tokens: 8192
+reasoning_effort: xhigh
 upstream:
   type: openai-chat-completions
   base_url: https://api.example.com/v1
@@ -148,11 +149,13 @@ retry:
 
 The built-in YAML reader intentionally supports a small safe subset: nested mappings and scalar strings/numbers/booleans/null. It rejects arrays, anchors, aliases, and flow-style YAML instead of guessing. Secrets should still live in `secrets.env`; `profile show` and `profile export` redact inline `api_key` values.
 
+`reasoning_effort` is optional and becomes the default OpenAI-compatible `reasoning_effort` sent upstream. Claude Code's in-TUI `/effort` command still works under CGB and overrides this profile default per request. For Letsur `gpt-5.5`, use `low`, `medium`, `high`, or `xhigh`; Claude Code's `max` is translated to `xhigh` because Letsur rejects `reasoning_effort: max`.
+
 `visible_model` is the model ID CGB returns in Anthropic-compatible responses. `client_model` is the Claude Code selector passed to the Claude Code CLI, normally `opus`, so Claude Code accepts the launch while CGB routes to the real upstream model.
 
 ## Claude Code display behavior
 
-Claude Code owns the top welcome-box model/billing text. CGB does not try to rewrite that header. CGB's source of truth is the status line, which shows the real route, for example `CGB gateway-gpt-4.1 → gpt-4.1 as claude-opus-4-7`.
+Claude Code owns the top welcome-box model/billing text. CGB does not try to rewrite that header. CGB's source of truth is the status line, which shows the real route, for example `CGB gateway-gpt-4.1 → gpt-4.1`.
 
 `cgb run` passes only `ANTHROPIC_AUTH_TOKEN` for the local proxy token, not `ANTHROPIC_API_KEY`, to avoid Claude Code's custom API-key confirmation prompt.
 

@@ -5,6 +5,7 @@ export function anthropicToOpenAI(body, profile) {
   const messages = [];
   if (typeof body.system === 'string') messages.push({ role: 'system', content: body.system });
   for (const message of body.messages) messages.push(...convertMessage(message));
+  const effort = resolveReasoningEffort(body, profile);
   return {
     model: profile.upstream.model,
     messages,
@@ -12,9 +13,19 @@ export function anthropicToOpenAI(body, profile) {
     ...(body.stream === true ? { stream_options: { include_usage: true } } : {}),
     max_tokens: Number(body.max_tokens || profile.max_output_tokens || 8192),
     ...(body.temperature === undefined ? {} : { temperature: body.temperature }),
+    ...(effort === undefined ? {} : { reasoning_effort: effort }),
     ...convertTools(body),
     ...convertToolChoice(body.tool_choice)
   };
+}
+
+function resolveReasoningEffort(body, profile) {
+  const requested = body?.output_config?.effort ?? body?.reasoning_effort ?? profile?.reasoning_effort;
+  if (requested === undefined || requested === null || requested === '') return undefined;
+  const effort = String(requested);
+  const allowed = new Set(['none', 'low', 'medium', 'high', 'xhigh', 'max']);
+  if (!allowed.has(effort)) return undefined;
+  return effort === 'max' ? 'xhigh' : effort;
 }
 
 function convertTools(body) {

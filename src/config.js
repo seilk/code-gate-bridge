@@ -96,6 +96,7 @@ export function normalizeProfile(profile) {
     client_model: String(profile.client_model || 'opus'),
     context_window: Number(profile.context_window || 200000),
     max_output_tokens: Number(profile.max_output_tokens || 8192),
+    ...(profile.reasoning_effort === undefined ? {} : { reasoning_effort: normalizeReasoningEffort(profile.reasoning_effort) }),
     upstream: {
       type: upstream.type || provider.transport,
       base_url: baseUrl,
@@ -116,6 +117,13 @@ function normalizeCapabilities(capabilities = {}, defaults = {}) {
     thinking: capabilities.thinking ?? defaults.thinking ?? false,
     prompt_cache: capabilities.prompt_cache ?? defaults.prompt_cache ?? false
   };
+}
+
+function normalizeReasoningEffort(value) {
+  const effort = String(value);
+  const allowed = new Set(['none', 'low', 'medium', 'high', 'xhigh', 'max']);
+  if (!allowed.has(effort)) throw new Error('profile.reasoning_effort must be one of none, low, medium, high, xhigh, max');
+  return effort;
 }
 
 function normalizeRetry(retry = {}) {
