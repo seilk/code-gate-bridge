@@ -1,5 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs/promises';
+import path from 'node:path';
 import { readState } from './state.js';
 import { stripControls } from './redact.js';
 
@@ -22,7 +23,7 @@ export async function renderStatusline(input, env = process.env) {
     return { stdout: mergeStatusline(display, result.stdout, context), stderr: result.stderr || '', status: result.status ?? 0 };
   }
   const model = display || 'cgb: no route observed';
-  return { stdout: mergeStatusline(model, '', context), stderr: '', status: 0 };
+  return { stdout: mergeStatusline(model, cgbDefaultHud(status), context), stderr: '', status: 0 };
 }
 
 async function observedModel(env) {
@@ -32,6 +33,14 @@ async function observedModel(env) {
   } catch { return ''; }
 }
 function truncate(value) { return stripControls(String(value || '')).slice(0, 80); }
+
+function cgbDefaultHud(status) {
+  const cwd = status?.workspace?.current_dir || status?.cwd || '';
+  const repo = cwd ? path.basename(String(cwd)) : '';
+  const branch = status?.gitBranch || status?.git_branch || status?.workspace?.git_branch || '';
+  const suffix = [repo, branch ? `git:(${stripControls(String(branch))})` : ''].filter(Boolean).join(' ');
+  return suffix ? `│ ${suffix}` : '';
+}
 
 function mergeStatusline(display, baseOutput = '', context = '') {
   const cleanDisplay = stripControls(String(display || '')).trim();
@@ -47,8 +56,8 @@ function mergeStatusline(display, baseOutput = '', context = '') {
   const prefix = `[${cleanDisplay}]`;
   const baseHasDisplay = cleanDisplay && baseLines.some((line) => stripControls(line).includes(cleanDisplay));
   if (cleanDisplay && (!baseHasDisplay || cleanFirstLine === cleanDisplay || cleanFirstLine === prefix)) parts.push(prefix);
-  if (context && !baseHadContext) parts.push(context);
   if (cleanFirstLine && cleanFirstLine !== cleanDisplay && cleanFirstLine !== prefix && cleanFirstLine !== context) parts.push(firstLine.trim());
+  if (context && !baseHadContext) parts.push(context);
   const lines = [parts.join(' '), ...remainingLines].filter((line) => line.trim());
   return `${lines.join('\n')}\n`;
 }

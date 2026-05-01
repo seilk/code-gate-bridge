@@ -59,8 +59,11 @@ test('CLI launches a profile directly without shell aliases or -- separator', as
   const fakeBin = path.join(dir, 'bin');
   const fakeClaude = path.join(fakeBin, 'claude');
   await fs.mkdir(fakeBin);
-  await fs.writeFile(fakeClaude, `#!/usr/bin/env node\nconsole.log(JSON.stringify({ argv: process.argv.slice(2), auth: process.env.ANTHROPIC_AUTH_TOKEN ? 'set' : 'missing', apiKey: process.env.ANTHROPIC_API_KEY || null, baseUrl: process.env.ANTHROPIC_BASE_URL || null, display: process.env.CGB_DISPLAY_MODEL || null }));\n`, { mode: 0o755 });
-  const env = { CGB_CONFIG_DIR: dir, CGB_SKIP_PREFLIGHT: '1', PATH: `${fakeBin}${path.delimiter}${process.env.PATH}`, CUSTOM_PROVIDER_API_KEY: 'test-key' };
+  await fs.writeFile(fakeClaude, `#!/usr/bin/env node\nconsole.log(JSON.stringify({ argv: process.argv.slice(2), auth: process.env.ANTHROPIC_AUTH_TOKEN ? 'set' : 'missing', apiKey: process.env.ANTHROPIC_API_KEY || null, baseUrl: process.env.ANTHROPIC_BASE_URL || null, display: process.env.CGB_DISPLAY_MODEL || null, baseStatus: process.env.CGB_BASE_STATUSLINE_COMMAND || null }));\n`, { mode: 0o755 });
+  const claudeConfig = path.join(dir, 'claude-config');
+  await fs.mkdir(claudeConfig);
+  await fs.writeFile(path.join(claudeConfig, 'settings.json'), JSON.stringify({ statusLine: { type: 'command', command: 'node /tmp/plain-claude-hud.js' } }));
+  const env = { CGB_CONFIG_DIR: dir, CLAUDE_CONFIG_DIR: claudeConfig, CGB_SKIP_PREFLIGHT: '1', PATH: `${fakeBin}${path.delimiter}${process.env.PATH}`, CUSTOM_PROVIDER_API_KEY: 'test-key' };
   assert.equal(run(['init'], env).status, 0);
   const create = run(['profile', 'create', 'gateway-gpt-4.1', '--base-url', 'https://api.example.com/v1', '--model', 'gpt-4.1', '--key-env', 'CUSTOM_PROVIDER_API_KEY', '--format', 'yaml'], env);
   assert.equal(create.status, 0, create.stderr);
@@ -73,4 +76,5 @@ test('CLI launches a profile directly without shell aliases or -- separator', as
   assert.equal(observed.apiKey, null);
   assert.match(observed.baseUrl, /^http:\/\/127\.0\.0\.1:/);
   assert.equal(observed.display, 'CGB gateway-gpt-4.1 → gpt-4.1');
+  assert.equal(observed.baseStatus, null);
 });

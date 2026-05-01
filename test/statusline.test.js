@@ -22,6 +22,13 @@ test('statusline default output includes cgb route display', async () => {
   assert.equal(out.stdout.trim(), '[CGB gateway → gpt-4.1]');
 });
 
+test('statusline default CGB HUD shows cwd and context without plain Claude model badge', async () => {
+  const input = JSON.stringify({ cwd: '/Users/seil/llmwiki', gitBranch: 'main', context_window: { total_input_tokens: 0, total_output_tokens: 0, context_window_size: 1000000 } });
+  const out = await renderStatusline(input, { CGB_DISPLAY_MODEL: 'CGB letsur-gpt-5.5 → gpt-5.5' });
+  assert.equal(out.stdout.trim(), '[CGB letsur-gpt-5.5 → gpt-5.5] │ llmwiki git:(main) ctx 0% 0/1M');
+  assert.equal(out.stdout.includes('Opus'), false);
+});
+
 test('statusline preserves context window usage when replacing Claude Code statusline', async () => {
   const input = JSON.stringify({
     context_window: {
@@ -38,7 +45,7 @@ test('statusline preserves context window usage when replacing Claude Code statu
 test('statusline keeps context window usage with base command output', async () => {
   const input = JSON.stringify({ context_window: { total_input_tokens: 10000, total_output_tokens: 0, context_window_size: 200000 } });
   const out = await renderStatusline(input, { CGB_DISPLAY_MODEL: 'CGB gateway → gpt-4.1', CGB_BASE_STATUSLINE_COMMAND: `printf 'widgets'` });
-  assert.equal(out.stdout.trim(), '[CGB gateway → gpt-4.1] ctx 5% 10k/200k widgets');
+  assert.equal(out.stdout.trim(), '[CGB gateway → gpt-4.1] widgets ctx 5% 10k/200k');
 });
 
 test('statusline wraps multiline user HUD and updates its context bar from Claude input', async () => {

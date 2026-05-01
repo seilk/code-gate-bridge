@@ -13,7 +13,7 @@ export async function runClaude(profileName, args = [], options = {}) {
   const proxy = await listenProxy(profile, { env });
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'cgb-claude-'));
   const settingsPath = path.join(tmp, 'settings.json');
-  const baseStatusLineCommand = options.baseStatusLineCommand ?? await readUserStatusLineCommand(env);
+  const baseStatusLineCommand = options.baseStatusLineCommand ?? (env.CGB_CHAIN_BASE_STATUSLINE === '1' ? await readUserStatusLineCommand(env) : '');
   const generated = buildClaudeSettings(profile, proxy, env, { baseStatusLineCommand });
   await fs.writeFile(settingsPath, `${JSON.stringify(generated.settings, null, 2)}\n`, { mode: 0o600 });
   return await new Promise((resolve, reject) => {
