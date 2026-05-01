@@ -52,6 +52,20 @@ async function waitFor(predicate, label, timeoutMs = 30000) {
   throw new Error(`timed out waiting for ${label}; capture saved to ${capturePath}`);
 }
 
+async function acceptKnownStartupPrompts(routePrefix, timeoutMs = 15000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const screen = capture();
+    if (hasRouteStatusline(screen, routePrefix) || screen.includes('custom API key')) return;
+    if (/Allow external CLAUDE\.md file imports\?|Do you trust the files in this folder\?/i.test(screen)) {
+      run('tmux', ['send-keys', '-t', session, 'Enter']);
+      await sleep(1000);
+      continue;
+    }
+    await sleep(500);
+  }
+}
+
 function hasRouteStatusline(screen, routePrefix) {
   return screen.split('\n').some((line) => line.trimStart().startsWith(`[${routePrefix}`));
 }
@@ -78,6 +92,7 @@ try {
   if (start.status !== 0) throw new Error(start.stderr || start.stdout || 'failed to start tmux session');
 
   const routePrefix = `CGB ${profile} →`;
+  await acceptKnownStartupPrompts(routePrefix);
   const initial = await waitFor((screen) => hasRouteStatusline(screen, routePrefix) || screen.includes('custom API key'), 'CGB statusline');
   if (initial.includes('custom API key')) {
     fs.writeFileSync(capturePath, initial);
