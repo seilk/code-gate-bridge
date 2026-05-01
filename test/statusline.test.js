@@ -38,18 +38,25 @@ test('statusline keeps context window usage with base command output', async () 
   assert.equal(out.stdout.trim(), '[CGB gateway → gpt-4.1 as claude-opus-4-7] ctx 5% 10k/200k widgets');
 });
 
-test('statusline wraps multiline user HUD without dropping its context bar', async () => {
+test('statusline wraps multiline user HUD and updates its context bar from Claude input', async () => {
   const input = JSON.stringify({ context_window: { total_input_tokens: 10000, total_output_tokens: 0, context_window_size: 200000 } });
-  const base = `printf '[Opus 4.7] │ repo\\nContext █░░░░░░░░░ 5%%'`;
+  const base = `printf '[Opus 4.7] │ repo\\nContext ░░░░░░░░░░ 0%%'`;
   const out = await renderStatusline(input, { CGB_DISPLAY_MODEL: 'CGB gateway → gpt-4.1 as claude-opus-4-7', CGB_BASE_STATUSLINE_COMMAND: base });
-  assert.equal(out.stdout.trim(), '[CGB gateway → gpt-4.1 as claude-opus-4-7] [Opus 4.7] │ repo\nContext █░░░░░░░░░ 5%');
+  assert.equal(out.stdout.trim(), '[CGB gateway → gpt-4.1 as claude-opus-4-7] [Opus 4.7] │ repo\nContext █░░░░░░░░░ 5% 10k/200k');
+});
+
+test('statusline replaces stale base HUD context percentage with latest Claude context_window usage', async () => {
+  const input = JSON.stringify({ context_window: { total_input_tokens: 700000, total_output_tokens: 0, context_window_size: 1000000 } });
+  const base = `printf '[Opus 4.7] │ repo\\nContext ░░░░░░░░░░ 0%%'`;
+  const out = await renderStatusline(input, { CGB_DISPLAY_MODEL: 'CGB gateway → gpt-5.5 as claude-opus-4-7', CGB_BASE_STATUSLINE_COMMAND: base });
+  assert.equal(out.stdout.trim(), '[CGB gateway → gpt-5.5 as claude-opus-4-7] [Opus 4.7] │ repo\nContext ███████░░░ 70% 700k/1M');
 });
 
 test('statusline does not duplicate CGB route when user HUD prints rewritten model', async () => {
   const input = JSON.stringify({ context_window: { total_input_tokens: 10000, total_output_tokens: 0, context_window_size: 200000 } });
   const base = `printf '[CGB gateway → gpt-4.1 as claude-opus-4-7] │ repo\\nContext █░░░░░░░░░ 5%%'`;
   const out = await renderStatusline(input, { CGB_DISPLAY_MODEL: 'CGB gateway → gpt-4.1 as claude-opus-4-7', CGB_BASE_STATUSLINE_COMMAND: base });
-  assert.equal(out.stdout.trim(), '[CGB gateway → gpt-4.1 as claude-opus-4-7] │ repo\nContext █░░░░░░░░░ 5%');
+  assert.equal(out.stdout.trim(), '[CGB gateway → gpt-4.1 as claude-opus-4-7] │ repo\nContext █░░░░░░░░░ 5% 10k/200k');
 });
 
 test('statusline shows zero context usage when Claude Code reports a window size', async () => {

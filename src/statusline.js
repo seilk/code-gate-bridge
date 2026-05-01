@@ -34,7 +34,10 @@ function truncate(value) { return stripControls(String(value || '')).slice(0, 80
 
 function mergeStatusline(display, baseOutput = '', context = '') {
   const cleanDisplay = stripControls(String(display || '')).trim();
-  const baseLines = String(baseOutput || '').split(/\r?\n/).map((line) => line.trimEnd()).filter((line) => line.trim());
+  const rawBaseLines = String(baseOutput || '').split(/\r?\n/).map((line) => line.trimEnd()).filter((line) => line.trim());
+  const contextReplacement = context ? contextLineForBase(context) : '';
+  const baseHadContext = rawBaseLines.some((line) => isContextLine(line));
+  const baseLines = contextReplacement ? rawBaseLines.map((line) => replaceContextLine(line, contextReplacement, context)) : rawBaseLines;
   const firstLine = baseLines[0] || '';
   const remainingLines = baseLines.slice(1);
   const parts = [];
@@ -42,11 +45,32 @@ function mergeStatusline(display, baseOutput = '', context = '') {
   const prefix = `[${cleanDisplay}]`;
   const baseHasDisplay = cleanDisplay && baseLines.some((line) => stripControls(line).includes(cleanDisplay));
   if (cleanDisplay && (!baseHasDisplay || cleanFirstLine === cleanDisplay || cleanFirstLine === prefix)) parts.push(prefix);
-  const baseHasContext = baseLines.some((line) => /\b(Context|ctx)[:\s]/i.test(stripControls(line)));
-  if (context && !baseHasContext) parts.push(context);
+  if (context && !baseHadContext) parts.push(context);
   if (cleanFirstLine && cleanFirstLine !== cleanDisplay && cleanFirstLine !== prefix && cleanFirstLine !== context) parts.push(firstLine.trim());
   const lines = [parts.join(' '), ...remainingLines].filter((line) => line.trim());
   return `${lines.join('\n')}\n`;
+}
+
+function isContextLine(line) {
+  return /\b(Context|ctx)[:\s]/i.test(stripControls(line));
+}
+
+function replaceContextLine(line, hudContext, compactContext) {
+  const clean = stripControls(line).trim();
+  if (/^ctx\b/i.test(clean)) return compactContext;
+  if (/^Context\b/i.test(clean)) return hudContext;
+  return line;
+}
+
+function contextLineForBase(context) {
+  const match = String(context).match(/^ctx\s+([^\s]+)(?:\s+(.+))?$/i);
+  if (!match) return context;
+  const pctText = match[1];
+  const tokensText = match[2] || '';
+  const pct = Number.parseFloat(pctText);
+  const filled = Number.isFinite(pct) ? Math.max(0, Math.min(10, Math.round(pct / 10))) : 0;
+  const bar = `${'█'.repeat(filled)}${'░'.repeat(10 - filled)}`;
+  return `Context ${bar} ${pctText}${tokensText ? ` ${tokensText}` : ''}`;
 }
 
 function parseStatusInput(input) {
