@@ -86,7 +86,7 @@ export function openAIToAnthropic(data, profile) {
     }
   }
   return {
-    id: data.id || `cpk_${Date.now()}`,
+    id: data.id || `cgb_${Date.now()}`,
     type: 'message',
     role: 'assistant',
     model: profile.visible_model,
@@ -105,7 +105,7 @@ export async function* openAIStreamToAnthropic(stream, profile) {
   const toolBlocks = new Map();
   let finalFinishReason = 'stop';
 
-  yield sse('message_start', { type: 'message_start', message: { id: `cpk_${Date.now()}`, type: 'message', role: 'assistant', model: profile.visible_model, content: [], stop_reason: null, usage: { input_tokens: 0, output_tokens: 0 } } });
+  yield sse('message_start', { type: 'message_start', message: { id: `cgb_${Date.now()}`, type: 'message', role: 'assistant', model: profile.visible_model, content: [], stop_reason: null, usage: { input_tokens: 0, output_tokens: 0 } } });
 
   for await (const chunk of stream) {
     buffer += decoder.decode(chunk, { stream: true });

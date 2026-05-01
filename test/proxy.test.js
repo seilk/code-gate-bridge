@@ -17,7 +17,7 @@ function fakeUpstream() {
 
 test('proxy authenticates and sends upstream model', async () => {
   const upstream = await fakeUpstream();
-  const env = { TEST_KEY: 'abc', CPK_STATE_DIR: await import('node:fs/promises').then(fs => fs.mkdtemp('/tmp/cpk-state-')) };
+  const env = { TEST_KEY: 'abc', CGB_STATE_DIR: await import('node:fs/promises').then(fs => fs.mkdtemp('/tmp/cgb-state-')) };
   const profile = { name: 'test', visible_model: 'claude-opus-4-7', max_output_tokens: 64, upstream: { base_url: upstream.url, model: 'gpt-4.1', api_key_env: 'TEST_KEY' }, capabilities: {} };
   const proxy = await listenProxy(profile, { env, token: 'local' });
   try {

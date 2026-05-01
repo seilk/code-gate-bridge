@@ -1,17 +1,17 @@
 {
-  "name": "claude-provider-kit",
+  "name": "code-gate-bridge",
   "version": "0.1.0",
   "description": "Safe local custom-provider kit for Claude Code: profiles, Anthropic-compatible proxy, diagnostics, and statusline truth.",
   "type": "module",
   "bin": {
-    "cpk": "bin/cpk.js"
+    "cgb": "bin/cgb.js"
   },
   "scripts": {
     "test": "node --test",
     "test:tui": "node scripts/tui-smoke.mjs",
     "test:tools": "node scripts/tool-smoke.mjs",
-    "lint": "node --check bin/cpk.js && find src test scripts \\( -name '*.js' -o -name '*.mjs' \\) -print0 | xargs -0 -n1 node --check",
-    "smoke": "node bin/cpk.js --help >/dev/null && npm test"
+    "lint": "node --check bin/cgb.js && find src test scripts \\( -name '*.js' -o -name '*.mjs' \\) -print0 | xargs -0 -n1 node --check",
+    "smoke": "node bin/cgb.js --help >/dev/null && npm test"
   },
   "keywords": [
     "claude-code",
@@ -28,12 +28,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/seilk/claude-provider-kit.git"
+    "url": "git+https://github.com/seilk/code-gate-bridge.git"
   },
   "bugs": {
-    "url": "https://github.com/seilk/claude-provider-kit/issues"
+    "url": "https://github.com/seilk/code-gate-bridge/issues"
   },
-  "homepage": "https://github.com/seilk/claude-provider-kit#readme",
+  "homepage": "https://github.com/seilk/code-gate-bridge#readme",
   "files": [
     "bin",
     "src",

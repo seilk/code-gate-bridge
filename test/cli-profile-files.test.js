@@ -4,15 +4,15 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 
-const bin = path.resolve('bin/cpk.js');
+const bin = path.resolve('bin/cgb.js');
 
 function run(args, env) {
   return spawnSync(process.execPath, [bin, ...args], { encoding: 'utf8', env: { ...process.env, ...env } });
 }
 
 test('CLI can create YAML-backed profile and show/export it as YAML', async () => {
-  const dir = await fs.mkdtemp('/tmp/cpk-cli-yaml-');
-  const env = { CPK_CONFIG_DIR: dir };
+  const dir = await fs.mkdtemp('/tmp/cgb-cli-yaml-');
+  const env = { CGB_CONFIG_DIR: dir };
   assert.equal(run(['init'], env).status, 0);
   const create = run(['profile', 'create', 'gateway-gpt-4.1', '--base-url', 'https://api.example.com/v1', '--model', 'gpt-4.1', '--key-env', 'CUSTOM_PROVIDER_API_KEY', '--format', 'yaml'], env);
   assert.equal(create.status, 0, create.stderr);
@@ -27,8 +27,8 @@ test('CLI can create YAML-backed profile and show/export it as YAML', async () =
 });
 
 test('CLI can import a YAML profile and override its name', async () => {
-  const dir = await fs.mkdtemp('/tmp/cpk-cli-import-');
-  const env = { CPK_CONFIG_DIR: dir };
+  const dir = await fs.mkdtemp('/tmp/cgb-cli-import-');
+  const env = { CGB_CONFIG_DIR: dir };
   const source = path.join(dir, 'source.yaml');
   await fs.writeFile(source, 'name: old\nprovider: openai-compatible\nvisible_model: claude-opus-4-7\nupstream:\n  base_url: https://api.example.com/v1\n  model: gpt-4.1\n  api_key_env: CUSTOM_PROVIDER_API_KEY\n', 'utf8');
   assert.equal(run(['init'], env).status, 0);
@@ -42,8 +42,8 @@ test('CLI can import a YAML profile and override its name', async () => {
 });
 
 test('CLI export tightens output file permissions', async () => {
-  const dir = await fs.mkdtemp('/tmp/cpk-cli-export-mode-');
-  const env = { CPK_CONFIG_DIR: dir };
+  const dir = await fs.mkdtemp('/tmp/cgb-cli-export-mode-');
+  const env = { CGB_CONFIG_DIR: dir };
   const output = path.join(dir, 'export.yaml');
   assert.equal(run(['init'], env).status, 0);
   assert.equal(run(['profile', 'create', 'gateway-gpt-4.1', '--base-url', 'https://api.example.com/v1', '--model', 'gpt-4.1', '--key-env', 'CUSTOM_PROVIDER_API_KEY'], env).status, 0);
@@ -55,12 +55,12 @@ test('CLI export tightens output file permissions', async () => {
 });
 
 test('CLI launches a profile directly without shell aliases or -- separator', async () => {
-  const dir = await fs.mkdtemp('/tmp/cpk-cli-direct-profile-');
+  const dir = await fs.mkdtemp('/tmp/cgb-cli-direct-profile-');
   const fakeBin = path.join(dir, 'bin');
   const fakeClaude = path.join(fakeBin, 'claude');
   await fs.mkdir(fakeBin);
-  await fs.writeFile(fakeClaude, `#!/usr/bin/env node\nconsole.log(JSON.stringify({ argv: process.argv.slice(2), auth: process.env.ANTHROPIC_AUTH_TOKEN ? 'set' : 'missing', apiKey: process.env.ANTHROPIC_API_KEY || null, baseUrl: process.env.ANTHROPIC_BASE_URL || null, display: process.env.CPK_DISPLAY_MODEL || null }));\n`, { mode: 0o755 });
-  const env = { CPK_CONFIG_DIR: dir, PATH: `${fakeBin}${path.delimiter}${process.env.PATH}`, CUSTOM_PROVIDER_API_KEY: 'test-key' };
+  await fs.writeFile(fakeClaude, `#!/usr/bin/env node\nconsole.log(JSON.stringify({ argv: process.argv.slice(2), auth: process.env.ANTHROPIC_AUTH_TOKEN ? 'set' : 'missing', apiKey: process.env.ANTHROPIC_API_KEY || null, baseUrl: process.env.ANTHROPIC_BASE_URL || null, display: process.env.CGB_DISPLAY_MODEL || null }));\n`, { mode: 0o755 });
+  const env = { CGB_CONFIG_DIR: dir, PATH: `${fakeBin}${path.delimiter}${process.env.PATH}`, CUSTOM_PROVIDER_API_KEY: 'test-key' };
   assert.equal(run(['init'], env).status, 0);
   const create = run(['profile', 'create', 'gateway-gpt-4.1', '--base-url', 'https://api.example.com/v1', '--model', 'gpt-4.1', '--key-env', 'CUSTOM_PROVIDER_API_KEY', '--format', 'yaml'], env);
   assert.equal(create.status, 0, create.stderr);
@@ -72,5 +72,5 @@ test('CLI launches a profile directly without shell aliases or -- separator', as
   assert.equal(observed.auth, 'set');
   assert.equal(observed.apiKey, null);
   assert.match(observed.baseUrl, /^http:\/\/127\.0\.0\.1:/);
-  assert.equal(observed.display, 'CPK gateway-gpt-4.1 → gpt-4.1 as claude-opus-4-7');
+  assert.equal(observed.display, 'CGB gateway-gpt-4.1 → gpt-4.1 as claude-opus-4-7');
 });

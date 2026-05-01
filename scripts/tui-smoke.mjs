@@ -6,15 +6,15 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const profile = process.argv[2] || process.env.CPK_TUI_PROFILE;
+const profile = process.argv[2] || process.env.CGB_TUI_PROFILE;
 if (!profile) {
   console.error('usage: npm run test:tui -- <profile>');
   process.exit(2);
 }
-const expected = process.env.CPK_TUI_EXPECTED || 'CPK_TUI_SMOKE_OK';
-const session = `cpk_tui_smoke_${process.pid}`;
+const expected = process.env.CGB_TUI_EXPECTED || 'CGB_TUI_SMOKE_OK';
+const session = `cgb_tui_smoke_${process.pid}`;
 const capturePath = path.join(os.tmpdir(), `${session}.txt`);
-const cpkBin = path.join(repoRoot, 'bin', 'cpk.js');
+const cgbBin = path.join(repoRoot, 'bin', 'cgb.js');
 
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, { encoding: 'utf8', ...options });
@@ -73,34 +73,34 @@ try {
   requireCommand('claude');
   run('tmux', ['kill-session', '-t', session]);
 
-  const launch = `${shellQuote(process.execPath)} ${shellQuote(cpkBin)} ${shellQuote(profile)}`;
+  const launch = `${shellQuote(process.execPath)} ${shellQuote(cgbBin)} ${shellQuote(profile)}`;
   const start = run('tmux', ['new-session', '-d', '-s', session, '-x', '160', '-y', '44', `cd ${shellQuote(repoRoot)} && ${launch}`]);
   if (start.status !== 0) throw new Error(start.stderr || start.stdout || 'failed to start tmux session');
 
-  const routePrefix = `CPK ${profile} →`;
-  const initial = await waitFor((screen) => hasRouteStatusline(screen, routePrefix) || screen.includes('custom API key'), 'CPK statusline');
+  const routePrefix = `CGB ${profile} →`;
+  const initial = await waitFor((screen) => hasRouteStatusline(screen, routePrefix) || screen.includes('custom API key'), 'CGB statusline');
   if (initial.includes('custom API key')) {
     fs.writeFileSync(capturePath, initial);
     throw new Error(`Claude Code showed custom API key prompt; capture saved to ${capturePath}`);
   }
   if (!hasRouteStatusline(initial, routePrefix)) {
     fs.writeFileSync(capturePath, initial);
-    throw new Error(`CPK route text was not rendered in the bottom statusline; capture saved to ${capturePath}`);
+    throw new Error(`CGB route text was not rendered in the bottom statusline; capture saved to ${capturePath}`);
   }
   if (!hasContextSegment(initial, routePrefix)) {
     fs.writeFileSync(capturePath, initial);
-    throw new Error(`CPK statusline did not preserve context window usage; capture saved to ${capturePath}`);
+    throw new Error(`CGB statusline did not preserve context window usage; capture saved to ${capturePath}`);
   }
 
   run('tmux', ['send-keys', '-t', session, `Reply exactly ${expected}`, 'Enter']);
   const finalScreen = await waitFor((screen) => occurrenceCount(screen, expected) >= 2, 'assistant reply', 60000);
   if (!hasRouteStatusline(finalScreen, routePrefix)) {
     fs.writeFileSync(capturePath, finalScreen);
-    throw new Error(`CPK route text disappeared from the bottom statusline after reply; capture saved to ${capturePath}`);
+    throw new Error(`CGB route text disappeared from the bottom statusline after reply; capture saved to ${capturePath}`);
   }
   if (!hasContextSegment(finalScreen, routePrefix)) {
     fs.writeFileSync(capturePath, finalScreen);
-    throw new Error(`CPK context window usage disappeared after reply; capture saved to ${capturePath}`);
+    throw new Error(`CGB context window usage disappeared after reply; capture saved to ${capturePath}`);
   }
   if (occurrenceCount(finalScreen, expected) < 2) {
     fs.writeFileSync(capturePath, finalScreen);

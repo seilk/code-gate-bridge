@@ -6,17 +6,17 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const profile = process.argv[2] || process.env.CPK_TOOL_PROFILE;
+const profile = process.argv[2] || process.env.CGB_TOOL_PROFILE;
 if (!profile) {
   console.error('usage: npm run test:tools -- <profile>');
   process.exit(2);
 }
 
-const tmpState = fs.mkdtempSync(path.join(os.tmpdir(), 'cpk-tool-smoke-'));
-const cpkBin = path.join(repoRoot, 'bin', 'cpk.js');
+const tmpState = fs.mkdtempSync(path.join(os.tmpdir(), 'cgb-tool-smoke-'));
+const cgbBin = path.join(repoRoot, 'bin', 'cgb.js');
 const prompt = 'Use the Bash tool to run: pwd. Then answer with exactly TOOL_OK followed by the command output.';
 const result = spawnSync(process.execPath, [
-  cpkBin,
+  cgbBin,
   profile,
   '-p',
   prompt,
@@ -31,17 +31,17 @@ const result = spawnSync(process.execPath, [
   '--verbose'
 ], {
   cwd: repoRoot,
-  env: { ...process.env, CPK_STATE_DIR: tmpState },
+  env: { ...process.env, CGB_STATE_DIR: tmpState },
   encoding: 'utf8',
   timeout: 120000
 });
 
 const combined = `${result.stdout || ''}\n${result.stderr || ''}`;
-const capturePath = path.join(os.tmpdir(), `cpk-tool-smoke-${process.pid}.jsonl`);
+const capturePath = path.join(os.tmpdir(), `cgb-tool-smoke-${process.pid}.jsonl`);
 fs.writeFileSync(capturePath, combined);
 
 if (result.status !== 0) {
-  throw new Error(`CPK tool smoke failed with status ${result.status}; capture saved to ${capturePath}`);
+  throw new Error(`CGB tool smoke failed with status ${result.status}; capture saved to ${capturePath}`);
 }
 if (!combined.includes('"type":"tool_use"') || !combined.includes('"name":"Bash"')) {
   throw new Error(`Bash tool_use was not observed; capture saved to ${capturePath}`);

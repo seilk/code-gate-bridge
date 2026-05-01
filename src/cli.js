@@ -7,7 +7,7 @@ import { runClaude } from './launcher.js';
 import { statuslineMain } from './statusline.js';
 import { listProviders } from './providers.js';
 
-const help = `claude-provider-kit (cpk)
+const help = `code-gate-bridge (cgb)
 
 Commands:
   init
@@ -20,7 +20,7 @@ Commands:
   providers
   serve <profile> [--port PORT] [--show-token]
   run <profile> [claude args]
-  <profile> [claude args]       Launch a profile directly, e.g. cpk gateway-gpt-4.1 --bare
+  <profile> [claude args]       Launch a profile directly, e.g. cgb gateway-gpt-4.1 --bare
   doctor <profile>
   route-test <profile> [--prompt TEXT]
   status
@@ -49,7 +49,7 @@ async function profileCommand(argv) {
   if (sub === 'show') return showProfileCommand(name, rest);
   if (sub === 'export') return exportProfileCommand(name, rest);
   if (sub === 'import') return importProfileCommand(name, rest);
-  if (sub !== 'create') throw new Error('usage: cpk profile create <name> --base-url URL --model MODEL --key-env ENV [--visible-model MODEL]');
+  if (sub !== 'create') throw new Error('usage: cgb profile create <name> --base-url URL --model MODEL --key-env ENV [--visible-model MODEL]');
   const opts = parseFlags(rest, new Set(['base-url', 'provider', 'model', 'key-env', 'visible-model', 'context-window', 'max-output-tokens', 'format']));
   if (!opts.provider && !opts['base-url']) throw new Error('missing --base-url or --provider');
   const profile = await writeProfile({ name, provider: opts.provider, visible_model: opts['visible-model'] || 'claude-opus-4-7', context_window: opts['context-window'] || 200000, max_output_tokens: opts['max-output-tokens'] || 8192, upstream: { base_url: opts['base-url'], model: required(opts, 'model'), api_key_env: opts['key-env'] } }, process.env, { format: opts.format || 'json' });
@@ -57,14 +57,14 @@ async function profileCommand(argv) {
 }
 
 async function showProfileCommand(name, argv) {
-  if (!name) throw new Error('usage: cpk profile show <name> [--format json|yaml]');
+  if (!name) throw new Error('usage: cgb profile show <name> [--format json|yaml]');
   const opts = parseFlags(argv, new Set(['format']));
   const format = opts.format || 'json';
   process.stdout.write(formatProfileDocument(sanitizeProfile(await readProfile(name)), format));
 }
 
 async function exportProfileCommand(name, argv) {
-  if (!name) throw new Error('usage: cpk profile export <name> [--format json|yaml] [--output FILE]');
+  if (!name) throw new Error('usage: cgb profile export <name> [--format json|yaml] [--output FILE]');
   const opts = parseFlags(argv, new Set(['format', 'output']));
   const text = formatProfileDocument(sanitizeProfile(await readProfile(name)), opts.format || 'json');
   if (opts.output) {
@@ -74,7 +74,7 @@ async function exportProfileCommand(name, argv) {
 }
 
 async function importProfileCommand(file, argv) {
-  if (!file) throw new Error('usage: cpk profile import <file> [--name NAME] [--format json|yaml]');
+  if (!file) throw new Error('usage: cgb profile import <file> [--name NAME] [--format json|yaml]');
   const opts = parseFlags(argv, new Set(['name', 'format']));
   const imported = await readProfileFile(file);
   const profile = { ...imported, name: opts.name || imported.name };
@@ -89,12 +89,12 @@ function providersCommand() {
 }
 
 async function serveCommand(argv) {
-  const [name, ...rest] = argv; if (!name) throw new Error('usage: cpk serve <profile> [--port PORT] [--show-token]');
+  const [name, ...rest] = argv; if (!name) throw new Error('usage: cgb serve <profile> [--port PORT] [--show-token]');
   const opts = parseFlags(rest, new Set(['port', 'show-token'])); const profile = await readProfile(name);
   const proxy = await listenProxy(profile, { port: opts.port || 0 });
   console.log(`Serving ${name}: ${proxy.url}${opts['show-token'] ? ` token=${proxy.token}` : ' (token hidden; use --show-token if needed)'}`);
 }
-async function runCommand(argv) { const [name, ...args] = argv; if (!name) throw new Error('usage: cpk run <profile> [claude args]'); process.exitCode = await runClaude(name, normalizeClaudeArgs(args)); }
+async function runCommand(argv) { const [name, ...args] = argv; if (!name) throw new Error('usage: cgb run <profile> [claude args]'); process.exitCode = await runClaude(name, normalizeClaudeArgs(args)); }
 async function doctorCommand(argv) { const [name] = argv; for (const c of await doctor(name)) console.log(`${c.ok ? 'OK' : 'FAIL'} ${c.name}: ${c.detail}`); }
 async function routeTestCommand(argv) { const [name, ...rest] = argv; const opts = parseFlags(rest, new Set(['prompt'])); console.log(JSON.stringify(await routeTest(name, opts.prompt), null, 2)); }
 async function statusCommand() { console.log(JSON.stringify(await readState().catch(() => ({ ok: false, message: 'no state yet' })), null, 2)); }

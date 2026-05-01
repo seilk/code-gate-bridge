@@ -10,7 +10,7 @@ export async function runClaude(profileName, args = [], options = {}) {
   const env = options.env || process.env;
   const profile = await readProfile(profileName, env);
   const proxy = await listenProxy(profile, { env });
-  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'cpk-claude-'));
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'cgb-claude-'));
   const settingsPath = path.join(tmp, 'settings.json');
   const baseStatusLineCommand = options.baseStatusLineCommand ?? await readUserStatusLineCommand(env);
   const generated = buildClaudeSettings(profile, proxy, env, { baseStatusLineCommand });
@@ -24,9 +24,9 @@ export async function runClaude(profileName, args = [], options = {}) {
 }
 
 export function buildClaudeSettings(profile, proxy, env = process.env, options = {}) {
-  const statuslineScript = new URL('../bin/cpk.js', import.meta.url).pathname;
-  const baseStatus = env.CPK_BASE_STATUSLINE_COMMAND || env.CCS_BASE_STATUSLINE_COMMAND || options.baseStatusLineCommand || '';
-  const claudeModelSelector = env.CPK_CLAUDE_MODEL_SELECTOR || profile.client_model || 'opus';
+  const statuslineScript = new URL('../bin/cgb.js', import.meta.url).pathname;
+  const baseStatus = env.CGB_BASE_STATUSLINE_COMMAND || env.CPK_BASE_STATUSLINE_COMMAND || env.CCS_BASE_STATUSLINE_COMMAND || options.baseStatusLineCommand || '';
+  const claudeModelSelector = env.CGB_CLAUDE_MODEL_SELECTOR || env.CPK_CLAUDE_MODEL_SELECTOR || profile.client_model || 'opus';
   const routeDisplay = routeLabel(profile);
   return {
     env: {
@@ -34,8 +34,8 @@ export function buildClaudeSettings(profile, proxy, env = process.env, options =
       ANTHROPIC_AUTH_TOKEN: proxy.token,
       ANTHROPIC_MODEL: claudeModelSelector,
       CLAUDE_CODE_AUTO_COMPACT_WINDOW: String(profile.context_window),
-      CPK_DISPLAY_MODEL: routeDisplay,
-      CPK_BASE_STATUSLINE_COMMAND: baseStatus
+      CGB_DISPLAY_MODEL: routeDisplay,
+      CGB_BASE_STATUSLINE_COMMAND: baseStatus
     },
     model: claudeModelSelector,
     settings: {
@@ -56,7 +56,7 @@ export async function readUserStatusLineCommand(env = process.env) {
     const data = JSON.parse(await fs.readFile(settingsPath, 'utf8'));
     const command = data?.statusLine?.type === 'command' ? data.statusLine.command : '';
     if (typeof command !== 'string' || !command.trim()) return '';
-    if (command.includes('cpk.js') && command.includes('statusline')) return '';
+    if ((command.includes('cgb.js') || command.includes('cpk.js')) && command.includes('statusline')) return '';
     return command;
   } catch { return ''; }
 }
@@ -64,5 +64,5 @@ export async function readUserStatusLineCommand(env = process.env) {
 function routeLabel(profile) {
   const upstream = profile.upstream?.model || 'upstream';
   const visible = profile.visible_model || profile.client_model || 'claude';
-  return `CPK ${profile.name} → ${upstream} as ${visible}`;
+  return `CGB ${profile.name} → ${upstream} as ${visible}`;
 }

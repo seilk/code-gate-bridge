@@ -3,7 +3,7 @@ import { readState } from './state.js';
 import { stripControls } from './redact.js';
 
 export async function renderStatusline(input, env = process.env) {
-  const display = truncate(env.CPK_DISPLAY_MODEL || env.CCS_DISPLAY_MODEL || await observedModel(env));
+  const display = truncate(env.CGB_DISPLAY_MODEL || env.CPK_DISPLAY_MODEL || env.CCS_DISPLAY_MODEL || await observedModel(env));
   const status = parseStatusInput(input);
   const context = renderContextSegment(status?.context_window);
   let forwarded = input;
@@ -12,15 +12,15 @@ export async function renderStatusline(input, env = process.env) {
     data.model = { ...(data.model && typeof data.model === 'object' ? data.model : {}), display_name: stripControls(display), id: stripControls(display) };
     forwarded = JSON.stringify(data);
   }
-  const base = env.CPK_BASE_STATUSLINE_COMMAND || env.CCS_BASE_STATUSLINE_COMMAND;
+  const base = env.CGB_BASE_STATUSLINE_COMMAND || env.CPK_BASE_STATUSLINE_COMMAND || env.CCS_BASE_STATUSLINE_COMMAND;
   if (base) {
-    const depth = Number(env.CPK_STATUSLINE_DEPTH || 0);
-    if (depth > 2) return { stdout: '[cpk: statusline recursion]\n', stderr: '', status: 0 };
-    const result = spawnSync('/bin/bash', ['-lc', base], { input: forwarded, encoding: 'utf8', env: { ...process.env, ...env, CPK_STATUSLINE_DEPTH: String(depth + 1) }, maxBuffer: 1024 * 1024, timeout: Number(env.CPK_STATUSLINE_TIMEOUT_MS || 1000) });
-    if (result.error) return { stdout: `[cpk: statusline ${result.error.code || 'error'}]\n`, stderr: '', status: 0 };
+    const depth = Number(env.CGB_STATUSLINE_DEPTH || 0);
+    if (depth > 2) return { stdout: '[cgb: statusline recursion]\n', stderr: '', status: 0 };
+    const result = spawnSync('/bin/bash', ['-lc', base], { input: forwarded, encoding: 'utf8', env: { ...process.env, ...env, CGB_STATUSLINE_DEPTH: String(depth + 1) }, maxBuffer: 1024 * 1024, timeout: Number(env.CGB_STATUSLINE_TIMEOUT_MS || 1000) });
+    if (result.error) return { stdout: `[cgb: statusline ${result.error.code || 'error'}]\n`, stderr: '', status: 0 };
     return { stdout: mergeStatusline(display, result.stdout, context), stderr: result.stderr || '', status: result.status ?? 0 };
   }
-  const model = display || 'cpk: no route observed';
+  const model = display || 'cgb: no route observed';
   return { stdout: mergeStatusline(model, '', context), stderr: '', status: 0 };
 }
 

@@ -15,7 +15,7 @@ export async function createProxy(profile, options = {}) {
   const token = options.token || randomToken();
   const env = options.env || process.env;
   const apiKey = await resolveApiKey(profile, env);
-  const timeoutMs = Number(options.timeoutMs || env.CPK_UPSTREAM_TIMEOUT_MS || DEFAULT_TIMEOUT_MS);
+  const timeoutMs = Number(options.timeoutMs || env.CGB_UPSTREAM_TIMEOUT_MS || env.CPK_UPSTREAM_TIMEOUT_MS || DEFAULT_TIMEOUT_MS);
   const server = http.createServer(async (req, res) => {
     let requestId = crypto.randomUUID();
     try {
@@ -27,14 +27,14 @@ export async function createProxy(profile, options = {}) {
       }
       if (req.method === 'GET' && pathname === '/v1/models') {
         if (!validAuth(req, token)) return json(res, 401, { error: { type: 'authentication_error', message: 'missing or invalid local proxy token' } });
-        return json(res, 200, { object: 'list', data: modelList(profile).map((id) => ({ id, object: 'model', owned_by: 'claude-provider-kit' })) });
+        return json(res, 200, { object: 'list', data: modelList(profile).map((id) => ({ id, object: 'model', owned_by: 'code-gate-bridge' })) });
       }
       if (req.method !== 'POST' || pathname !== '/v1/messages') return json(res, 404, { error: { type: 'not_found', message: 'not found' } });
       if (!validAuth(req, token)) return json(res, 401, { error: { type: 'authentication_error', message: 'missing or invalid local proxy token' } });
       const raw = await readBody(req);
       const anthropic = JSON.parse(raw || '{}');
       const upstreamBody = anthropicToOpenAI(anthropic, profile);
-      requestId = `cpk_${crypto.randomUUID()}`;
+      requestId = `cgb_${crypto.randomUUID()}`;
       await writeState({ attempted_request_id: requestId, active_profile: profile.name, visible_model: profile.visible_model, attempted_upstream_model: profile.upstream.model, proxy_url: currentProxyUrl(host, server) }, env);
       await logEvent('request.forward', { request_id: requestId, profile: profile.name, visible_model: profile.visible_model, upstream_model: profile.upstream.model, upstream_base_url: profile.upstream.base_url }, env);
       const controller = new AbortController();
@@ -112,7 +112,7 @@ function validAuth(req, token) {
   return candidates.some((candidate) => safeEqual(String(candidate), token));
 }
 function safeEqual(a, b) { const ab = Buffer.from(a); const bb = Buffer.from(b); return ab.length === bb.length && crypto.timingSafeEqual(ab, bb); }
-function randomToken() { return `cpk-local-${crypto.randomBytes(32).toString('base64url')}`; }
+function randomToken() { return `cgb-local-${crypto.randomBytes(32).toString('base64url')}`; }
 function readBody(req) { return new Promise((resolve, reject) => { let body=''; let bytes=0; req.setEncoding('utf8'); req.on('data', c => { bytes += Buffer.byteLength(c); if (bytes > MAX_BODY_BYTES) { req.destroy(); reject(new Error('request body too large')); return; } body += c; }); req.on('end', () => resolve(body)); req.on('error', reject); }); }
 function json(res, status, data) { res.writeHead(status, { 'Content-Type': 'application/json' }); res.end(`${JSON.stringify(data)}\n`); }
 function noContent(res, headers = {}) { res.writeHead(204, headers); res.end(); }

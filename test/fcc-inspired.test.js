@@ -40,8 +40,8 @@ test('provider catalog exposes safe built-in presets without secrets', () => {
 });
 
 test('profile create can derive provider defaults from provider id', async () => {
-  const dir = await fs.mkdtemp('/tmp/cpk-provider-config-');
-  const env = { CPK_CONFIG_DIR: dir };
+  const dir = await fs.mkdtemp('/tmp/cgb-provider-config-');
+  const env = { CGB_CONFIG_DIR: dir };
   await initConfig(env);
   await writeProfile({ name: 'p', provider: 'letsur', visible_model: 'claude-opus-4-7', upstream: { model: 'provider-native-model', api_key_env: 'LETSUR_API_KEY' } }, env);
   const profile = await readProfile('p', env);
@@ -54,7 +54,7 @@ test('profile create can derive provider defaults from provider id', async () =>
 
 test('proxy supports Claude Code compatibility probes and model listing', async () => {
   const upstream = await upstreamWithStatuses([200]);
-  const env = { TEST_KEY: 'abc', CPK_STATE_DIR: await fs.mkdtemp('/tmp/cpk-state-') };
+  const env = { TEST_KEY: 'abc', CGB_STATE_DIR: await fs.mkdtemp('/tmp/cgb-state-') };
   const profile = { name: 'test', visible_model: 'claude-opus-4-7', max_output_tokens: 64, upstream: { base_url: upstream.url, model: 'gpt-4.1', api_key_env: 'TEST_KEY' }, capabilities: {} };
   const proxy = await listenProxy(profile, { env, token: 'local' });
   try {
@@ -81,7 +81,7 @@ test('proxy supports Claude Code compatibility probes and model listing', async 
 
 test('proxy retries 429 before response is sent and redacts upstream errors', async () => {
   const upstream = await upstreamWithStatuses([429, 200]);
-  const env = { TEST_KEY: 'abc', CPK_STATE_DIR: await fs.mkdtemp('/tmp/cpk-state-') };
+  const env = { TEST_KEY: 'abc', CGB_STATE_DIR: await fs.mkdtemp('/tmp/cgb-state-') };
   const profile = { name: 'retry', visible_model: 'claude-opus-4-7', max_output_tokens: 64, upstream: { base_url: upstream.url, model: 'gpt-4.1', api_key_env: 'TEST_KEY' }, capabilities: {}, retry: { max_retries: 1, base_delay_ms: 0 } };
   const proxy = await listenProxy(profile, { env, token: 'local' });
   try {

@@ -5,8 +5,8 @@ import path from 'node:path';
 import { initConfig, writeProfile, readProfile, readProfileFile, writeProfileFile, formatProfileDocument, parseProfileDocument, listProfiles } from '../src/config.js';
 
 test('profile roundtrip in isolated config dir', async () => {
-  const dir = await fs.mkdtemp('/tmp/cpk-config-');
-  const env = { CPK_CONFIG_DIR: dir };
+  const dir = await fs.mkdtemp('/tmp/cgb-config-');
+  const env = { CGB_CONFIG_DIR: dir };
   await initConfig(env);
   await writeProfile({ name: 'gateway-gpt-4.1', visible_model: 'claude-opus-4-7', upstream: { base_url: 'https://api.example.com/v1', model: 'gpt-4.1', api_key_env: 'CUSTOM_PROVIDER_API_KEY' } }, env);
   const p = await readProfile('gateway-gpt-4.1', env);
@@ -14,12 +14,22 @@ test('profile roundtrip in isolated config dir', async () => {
   assert.equal(p.upstream.model, 'gpt-4.1');
 });
 
+test('CGB can read profiles from legacy CPK_CONFIG_DIR during rename transition', async () => {
+  const dir = await fs.mkdtemp('/tmp/cgb-legacy-config-');
+  const env = { CPK_CONFIG_DIR: dir };
+  await initConfig(env);
+  await writeProfile({ name: 'legacy', visible_model: 'claude-opus-4-7', upstream: { base_url: 'https://api.example.com/v1', model: 'gpt-4.1', api_key_env: 'CUSTOM_PROVIDER_API_KEY' } }, env);
+  const p = await readProfile('legacy', env);
+  assert.equal(p.upstream.model, 'gpt-4.1');
+  assert.deepEqual(await listProfiles(env), ['legacy']);
+});
+
 test('rejects unsafe profile names', async () => {
-  await assert.rejects(() => writeProfile({ name: '../bad', visible_model: 'x', upstream: { base_url: 'https://x', model: 'm', api_key_env: 'K' } }, { CPK_CONFIG_DIR: '/tmp/cpk-x' }), /profile name/);
+  await assert.rejects(() => writeProfile({ name: '../bad', visible_model: 'x', upstream: { base_url: 'https://x', model: 'm', api_key_env: 'K' } }, { CGB_CONFIG_DIR: '/tmp/cgb-x' }), /profile name/);
 });
 
 test('rejects invalid retry configuration', async () => {
-  await assert.rejects(() => writeProfile({ name: 'bad-retry', visible_model: 'x', upstream: { base_url: 'https://x', model: 'm', api_key_env: 'K' }, retry: { max_retries: 'nope' } }, { CPK_CONFIG_DIR: '/tmp/cpk-x' }), /retry\.max_retries/);
+  await assert.rejects(() => writeProfile({ name: 'bad-retry', visible_model: 'x', upstream: { base_url: 'https://x', model: 'm', api_key_env: 'K' }, retry: { max_retries: 'nope' } }, { CGB_CONFIG_DIR: '/tmp/cgb-x' }), /retry\.max_retries/);
 });
 
 test('parses and formats profile YAML safely', () => {
@@ -55,7 +65,7 @@ test('rejects unsupported YAML constructs instead of guessing', () => {
 });
 
 test('reads and writes profile files in json and yaml', async () => {
-  const dir = await fs.mkdtemp('/tmp/cpk-profile-file-');
+  const dir = await fs.mkdtemp('/tmp/cgb-profile-file-');
   const yamlPath = path.join(dir, 'gateway.yaml');
   const jsonPath = path.join(dir, 'gateway-copy.json');
   await fs.writeFile(yamlPath, `name: gateway\nprovider: openai-compatible\nvisible_model: claude-opus-4-7\nupstream:\n  base_url: https://api.example.com/v1\n  model: gpt-4.1\n  api_key_env: CUSTOM_PROVIDER_API_KEY\n`, 'utf8');
@@ -68,8 +78,8 @@ test('reads and writes profile files in json and yaml', async () => {
 });
 
 test('profile store can use yaml as canonical file', async () => {
-  const dir = await fs.mkdtemp('/tmp/cpk-yaml-store-');
-  const env = { CPK_CONFIG_DIR: dir };
+  const dir = await fs.mkdtemp('/tmp/cgb-yaml-store-');
+  const env = { CGB_CONFIG_DIR: dir };
   await initConfig(env);
   await writeProfile({ name: 'yamlprof', visible_model: 'claude-opus-4-7', upstream: { base_url: 'https://api.example.com/v1', model: 'gpt-4.1', api_key_env: 'CUSTOM_PROVIDER_API_KEY' } }, env, { format: 'yaml' });
   assert.equal((await listProfiles(env)).includes('yamlprof'), true);
@@ -80,8 +90,8 @@ test('profile store can use yaml as canonical file', async () => {
 });
 
 test('writing a profile in one format removes stale sibling formats', async () => {
-  const dir = await fs.mkdtemp('/tmp/cpk-format-switch-');
-  const env = { CPK_CONFIG_DIR: dir };
+  const dir = await fs.mkdtemp('/tmp/cgb-format-switch-');
+  const env = { CGB_CONFIG_DIR: dir };
   await initConfig(env);
   await writeProfile({ name: 'switch', visible_model: 'claude-opus-4-7', upstream: { base_url: 'https://old.example/v1', model: 'old', api_key_env: 'OLD_KEY' } }, env);
   await writeProfile({ name: 'switch', visible_model: 'claude-opus-4-7', upstream: { base_url: 'https://api.example.com/v1', model: 'gpt-4.1', api_key_env: 'CUSTOM_PROVIDER_API_KEY' } }, env, { format: 'yaml' });
