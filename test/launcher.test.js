@@ -29,3 +29,11 @@ test('launcher does not hijack Claude Code session name', () => {
   assert.deepEqual(buildClaudeArgs('/tmp/settings.json', generated, ['--name', 'mine']), ['--setting-sources', 'project,local', '--settings', '/tmp/settings.json', '--model', 'opus', '--name', 'mine']);
   assert.deepEqual(buildClaudeArgs('/tmp/settings.json', generated, ['--name=mine']), ['--setting-sources', 'project,local', '--settings', '/tmp/settings.json', '--model', 'opus', '--name=mine']);
 });
+
+test('launcher uses only per-run settings and does not target persistent Claude settings', () => {
+  const generated = { model: 'opus' };
+  const args = buildClaudeArgs('/tmp/cpk-claude-abc/settings.json', generated, []);
+  assert.deepEqual(args.slice(0, 6), ['--setting-sources', 'project,local', '--settings', '/tmp/cpk-claude-abc/settings.json', '--model', 'opus']);
+  assert.equal(args.some((arg) => String(arg).includes('/.claude/settings')), false);
+  assert.equal(args.some((arg) => String(arg).includes('.claude/settings')), false);
+});
