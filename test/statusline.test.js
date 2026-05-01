@@ -38,6 +38,20 @@ test('statusline keeps context window usage with base command output', async () 
   assert.equal(out.stdout.trim(), '[CPK gateway → gpt-4.1 as claude-opus-4-7] ctx 5% 10k/200k widgets');
 });
 
+test('statusline wraps multiline user HUD without dropping its context bar', async () => {
+  const input = JSON.stringify({ context_window: { total_input_tokens: 10000, total_output_tokens: 0, context_window_size: 200000 } });
+  const base = `printf '[Opus 4.7] │ repo\\nContext █░░░░░░░░░ 5%%'`;
+  const out = await renderStatusline(input, { CPK_DISPLAY_MODEL: 'CPK gateway → gpt-4.1 as claude-opus-4-7', CPK_BASE_STATUSLINE_COMMAND: base });
+  assert.equal(out.stdout.trim(), '[CPK gateway → gpt-4.1 as claude-opus-4-7] [Opus 4.7] │ repo\nContext █░░░░░░░░░ 5%');
+});
+
+test('statusline does not duplicate CPK route when user HUD prints rewritten model', async () => {
+  const input = JSON.stringify({ context_window: { total_input_tokens: 10000, total_output_tokens: 0, context_window_size: 200000 } });
+  const base = `printf '[CPK gateway → gpt-4.1 as claude-opus-4-7] │ repo\\nContext █░░░░░░░░░ 5%%'`;
+  const out = await renderStatusline(input, { CPK_DISPLAY_MODEL: 'CPK gateway → gpt-4.1 as claude-opus-4-7', CPK_BASE_STATUSLINE_COMMAND: base });
+  assert.equal(out.stdout.trim(), '[CPK gateway → gpt-4.1 as claude-opus-4-7] │ repo\nContext █░░░░░░░░░ 5%');
+});
+
 test('statusline shows zero context usage when Claude Code reports a window size', async () => {
   const input = JSON.stringify({ context_window: { total_input_tokens: 0, total_output_tokens: 0, context_window_size: 1000000 } });
   const out = await renderStatusline(input, { CPK_DISPLAY_MODEL: 'CPK gateway → gpt-4.1 as claude-opus-4-7' });

@@ -12,7 +12,8 @@ export async function runClaude(profileName, args = [], options = {}) {
   const proxy = await listenProxy(profile, { env });
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'cpk-claude-'));
   const settingsPath = path.join(tmp, 'settings.json');
-  const generated = buildClaudeSettings(profile, proxy, env);
+  const baseStatusLineCommand = options.baseStatusLineCommand ?? await readUserStatusLineCommand(env);
+  const generated = buildClaudeSettings(profile, proxy, env, { baseStatusLineCommand });
   await fs.writeFile(settingsPath, `${JSON.stringify(generated.settings, null, 2)}\n`, { mode: 0o600 });
   return await new Promise((resolve, reject) => {
     const cleanup = async () => { proxy.server.close(); await fs.rm(tmp, { recursive: true, force: true }); };
@@ -22,9 +23,9 @@ export async function runClaude(profileName, args = [], options = {}) {
   });
 }
 
-export function buildClaudeSettings(profile, proxy, env = process.env) {
+export function buildClaudeSettings(profile, proxy, env = process.env, options = {}) {
   const statuslineScript = new URL('../bin/cpk.js', import.meta.url).pathname;
-  const baseStatus = env.CPK_BASE_STATUSLINE_COMMAND || env.CCS_BASE_STATUSLINE_COMMAND || '';
+  const baseStatus = env.CPK_BASE_STATUSLINE_COMMAND || env.CCS_BASE_STATUSLINE_COMMAND || options.baseStatusLineCommand || '';
   const claudeModelSelector = env.CPK_CLAUDE_MODEL_SELECTOR || profile.client_model || 'opus';
   const routeDisplay = routeLabel(profile);
   return {
@@ -46,6 +47,18 @@ export function buildClaudeSettings(profile, proxy, env = process.env) {
 
 export function buildClaudeArgs(settingsPath, generated, userArgs = []) {
   return ['--setting-sources', 'project,local', '--settings', settingsPath, '--model', generated.model, ...userArgs];
+}
+
+export async function readUserStatusLineCommand(env = process.env) {
+  const configDir = env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude');
+  const settingsPath = path.join(configDir, 'settings.json');
+  try {
+    const data = JSON.parse(await fs.readFile(settingsPath, 'utf8'));
+    const command = data?.statusLine?.type === 'command' ? data.statusLine.command : '';
+    if (typeof command !== 'string' || !command.trim()) return '';
+    if (command.includes('cpk.js') && command.includes('statusline')) return '';
+    return command;
+  } catch { return ''; }
 }
 
 function routeLabel(profile) {

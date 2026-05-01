@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildClaudeArgs, buildClaudeSettings } from '../src/launcher.js';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { buildClaudeArgs, buildClaudeSettings, readUserStatusLineCommand } from '../src/launcher.js';
 
 test('launcher separates Claude settings from process env and route display', () => {
   const settings = buildClaudeSettings({
@@ -36,4 +39,20 @@ test('launcher uses only per-run settings and does not target persistent Claude 
   assert.deepEqual(args.slice(0, 6), ['--setting-sources', 'project,local', '--settings', '/tmp/cpk-claude-abc/settings.json', '--model', 'opus']);
   assert.equal(args.some((arg) => String(arg).includes('/.claude/settings')), false);
   assert.equal(args.some((arg) => String(arg).includes('.claude/settings')), false);
+});
+
+test('launcher can chain an existing user statusline command as CPK base statusline', async () => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'cpk-claude-config-'));
+  await fs.writeFile(path.join(dir, 'settings.json'), JSON.stringify({ statusLine: { type: 'command', command: 'node /tmp/hud.js' } }));
+  assert.equal(await readUserStatusLineCommand({ CLAUDE_CONFIG_DIR: dir }), 'node /tmp/hud.js');
+  const settings = buildClaudeSettings({ name: 'gateway', visible_model: 'claude-opus-4-7', client_model: 'opus', context_window: 1000000, upstream: { model: 'gpt-4.1' } }, { url: 'http://127.0.0.1:1', token: 'token' }, { CLAUDE_CONFIG_DIR: dir }, { baseStatusLineCommand: await readUserStatusLineCommand({ CLAUDE_CONFIG_DIR: dir }) });
+  assert.equal(settings.env.CPK_BASE_STATUSLINE_COMMAND, 'node /tmp/hud.js');
+  await fs.rm(dir, { recursive: true, force: true });
+});
+
+test('launcher does not recursively chain a CPK statusline command', async () => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'cpk-claude-config-'));
+  await fs.writeFile(path.join(dir, 'settings.json'), JSON.stringify({ statusLine: { type: 'command', command: "node '/repo/bin/cpk.js' statusline" } }));
+  assert.equal(await readUserStatusLineCommand({ CLAUDE_CONFIG_DIR: dir }), '');
+  await fs.rm(dir, { recursive: true, force: true });
 });

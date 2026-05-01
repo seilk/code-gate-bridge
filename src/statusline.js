@@ -34,13 +34,19 @@ function truncate(value) { return stripControls(String(value || '')).slice(0, 80
 
 function mergeStatusline(display, baseOutput = '', context = '') {
   const cleanDisplay = stripControls(String(display || '')).trim();
-  const firstLine = String(baseOutput || '').split(/\r?\n/)[0].trim();
+  const baseLines = String(baseOutput || '').split(/\r?\n/).map((line) => line.trimEnd()).filter((line) => line.trim());
+  const firstLine = baseLines[0] || '';
+  const remainingLines = baseLines.slice(1);
   const parts = [];
-  if (cleanDisplay) parts.push(`[${cleanDisplay}]`);
-  if (context) parts.push(context);
   const cleanFirstLine = stripControls(firstLine).trim();
-  if (cleanFirstLine && cleanFirstLine !== cleanDisplay && cleanFirstLine !== `[${cleanDisplay}]` && cleanFirstLine !== context) parts.push(firstLine);
-  return `${parts.join(' ')}\n`;
+  const prefix = `[${cleanDisplay}]`;
+  const baseHasDisplay = cleanDisplay && baseLines.some((line) => stripControls(line).includes(cleanDisplay));
+  if (cleanDisplay && (!baseHasDisplay || cleanFirstLine === cleanDisplay || cleanFirstLine === prefix)) parts.push(prefix);
+  const baseHasContext = baseLines.some((line) => /\b(Context|ctx)[:\s]/i.test(stripControls(line)));
+  if (context && !baseHasContext) parts.push(context);
+  if (cleanFirstLine && cleanFirstLine !== cleanDisplay && cleanFirstLine !== prefix && cleanFirstLine !== context) parts.push(firstLine.trim());
+  const lines = [parts.join(' '), ...remainingLines].filter((line) => line.trim());
+  return `${lines.join('\n')}\n`;
 }
 
 function parseStatusInput(input) {

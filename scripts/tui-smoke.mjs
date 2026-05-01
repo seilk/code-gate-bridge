@@ -57,7 +57,11 @@ function hasRouteStatusline(screen, routePrefix) {
 }
 
 function hasContextSegment(screen, routePrefix) {
-  return screen.split('\n').some((line) => line.trimStart().startsWith(`[${routePrefix}`) && line.includes(' ctx '));
+  const lines = screen.split('\n');
+  const routeLineIndex = lines.findIndex((line) => line.trimStart().startsWith(`[${routePrefix}`));
+  if (routeLineIndex < 0) return false;
+  if (lines[routeLineIndex].includes(' ctx ')) return true;
+  return lines.slice(routeLineIndex + 1, routeLineIndex + 4).some((line) => /\bContext\b|\bctx[:\s]/i.test(line));
 }
 
 function occurrenceCount(text, needle) {
