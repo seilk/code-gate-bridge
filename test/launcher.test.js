@@ -11,6 +11,7 @@ test('launcher separates Claude settings from process env and route display', ()
     visible_model: 'claude-opus-4-7',
     client_model: 'opus',
     context_window: 1000000,
+    reasoning_effort: 'xhigh',
     upstream: { model: 'gpt-4.1' }
   }, { url: 'http://127.0.0.1:12345', token: 'local-token' }, {});
   assert.equal(settings.model, 'opus');
@@ -19,6 +20,7 @@ test('launcher separates Claude settings from process env and route display', ()
   assert.equal(settings.env.ANTHROPIC_MODEL, 'opus');
   assert.equal(settings.env.ANTHROPIC_DEFAULT_OPUS_MODEL, undefined);
   assert.equal(settings.env.CGB_DISPLAY_MODEL, 'CGB gateway → gpt-4.1');
+  assert.equal(settings.env.CGB_PROFILE_EFFORT, 'xhigh');
   assert.equal(settings.sessionName, undefined);
   assert.deepEqual(Object.keys(settings.settings).sort(), ['autoCompactWindow', 'statusLine']);
   assert.equal(settings.settings.statusLine.padding, 0);

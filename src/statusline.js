@@ -23,7 +23,8 @@ export async function renderStatusline(input, env = process.env) {
     return { stdout: mergeStatusline(display, result.stdout, context), stderr: result.stderr || '', status: result.status ?? 0 };
   }
   const model = display || 'cgb: no route observed';
-  return { stdout: mergeStatusline(model, cgbDefaultHud(status), context), stderr: '', status: 0 };
+  const effort = profileEffortSegment(env);
+  return { stdout: mergeStatusline(model, cgbDefaultHud(status, effort), context), stderr: '', status: 0 };
 }
 
 async function observedModel(env) {
@@ -34,12 +35,17 @@ async function observedModel(env) {
 }
 function truncate(value) { return stripControls(String(value || '')).slice(0, 80); }
 
-function cgbDefaultHud(status) {
+function cgbDefaultHud(status, effort = '') {
   const cwd = status?.workspace?.current_dir || status?.cwd || '';
   const repo = cwd ? path.basename(String(cwd)) : '';
   const branch = status?.gitBranch || status?.git_branch || status?.workspace?.git_branch || '';
-  const suffix = [repo, branch ? `git:(${stripControls(String(branch))})` : ''].filter(Boolean).join(' ');
+  const suffix = [effort, repo, branch ? `git:(${stripControls(String(branch))})` : ''].filter(Boolean).join(' ');
   return suffix ? `│ ${suffix}` : '';
+}
+
+function profileEffortSegment(env) {
+  const effort = truncate(env.CGB_PROFILE_EFFORT || env.CPK_PROFILE_EFFORT || '');
+  return effort ? `profile-effort:${effort}` : '';
 }
 
 function mergeStatusline(display, baseOutput = '', context = '') {

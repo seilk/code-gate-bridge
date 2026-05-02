@@ -22,10 +22,10 @@ test('statusline default output includes cgb route display', async () => {
   assert.equal(out.stdout.trim(), '[CGB gateway → gpt-4.1]');
 });
 
-test('statusline default CGB HUD shows cwd and context without plain Claude model badge', async () => {
+test('statusline default CGB HUD shows profile effort, cwd, and context without plain Claude model badge', async () => {
   const input = JSON.stringify({ cwd: '/Users/seil/llmwiki', gitBranch: 'main', context_window: { total_input_tokens: 0, total_output_tokens: 0, context_window_size: 1000000 } });
-  const out = await renderStatusline(input, { CGB_DISPLAY_MODEL: 'CGB letsur-gpt-5.5 → gpt-5.5' });
-  assert.equal(out.stdout.trim(), '[CGB letsur-gpt-5.5 → gpt-5.5] │ llmwiki git:(main) ctx 0% 0/1M');
+  const out = await renderStatusline(input, { CGB_DISPLAY_MODEL: 'CGB letsur-gpt-5.5 → gpt-5.5', CGB_PROFILE_EFFORT: 'xhigh' });
+  assert.equal(out.stdout.trim(), '[CGB letsur-gpt-5.5 → gpt-5.5] │ profile-effort:xhigh llmwiki git:(main) ctx 0% 0/1M');
   assert.equal(out.stdout.includes('Opus'), false);
 });
 

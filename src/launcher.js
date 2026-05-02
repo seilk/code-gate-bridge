@@ -36,6 +36,7 @@ export function buildClaudeSettings(profile, proxy, env = process.env, options =
       ANTHROPIC_MODEL: claudeModelSelector,
       CLAUDE_CODE_AUTO_COMPACT_WINDOW: String(profile.context_window),
       CGB_DISPLAY_MODEL: routeDisplay,
+      ...(profile.reasoning_effort ? { CGB_PROFILE_EFFORT: String(profile.reasoning_effort) } : {}),
       CGB_BASE_STATUSLINE_COMMAND: baseStatus
     },
     model: claudeModelSelector,
