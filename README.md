@@ -97,6 +97,7 @@ cgb profile import          Import a profile from JSON or YAML
 cgb serve                   Start a local proxy for manual integration
 cgb run                     Launch Claude Code through a profile
 cgb <profile>               Launch a profile directly, forwarding Claude Code flags
+cgb agents                  Open Claude Code Agent View (forwards to `claude agents`)
 cgb doctor                  Validate profile/config basics
 cgb route-test              Send a real request through the local proxy
 cgb status                  Show last observed proxy state
