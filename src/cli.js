@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises';
+import { spawn } from 'node:child_process';
 import { initConfig, writeProfile, listProfiles, readProfile, sanitizeProfile, formatProfileDocument, readProfileFile } from './config.js';
 import { listenProxy } from './proxy.js';
 import { doctor, routeTest } from './doctor.js';
@@ -21,6 +22,8 @@ Commands:
   serve <profile> [--port PORT] [--show-token]
   run <profile> [claude args]
   <profile> [claude args]       Launch a profile directly, e.g. cgb gateway-gpt-4.1 --bare
+  agents [claude args]          Open Claude Code Agent View (forwards to 'claude agents';
+                                set CGB_CLAUDE_BIN to override the resolved claude binary)
   doctor <profile>
   route-test <profile> [--prompt TEXT]
   status
@@ -39,8 +42,20 @@ export async function main(argv) {
   if (cmd === 'doctor') return doctorCommand(rest);
   if (cmd === 'route-test') return routeTestCommand(rest);
   if (cmd === 'status') return statusCommand();
+  if (cmd === 'agents') return agentsCommand(rest);
   if (!cmd.startsWith('-') && await profileExists(cmd)) return runCommand([cmd, ...rest]);
   throw new Error(`unknown command or profile: ${cmd}\n${help}`);
+}
+
+export async function agentsCommand(argv = [], options = {}) {
+  const claudeBin = options.claudeBin || process.env.CGB_CLAUDE_BIN || 'claude';
+  const env = options.env || process.env;
+  const stdio = options.stdio || 'inherit';
+  process.exitCode = await new Promise((resolve, reject) => {
+    const child = spawn(claudeBin, ['agents', ...argv], { stdio, env });
+    child.on('error', reject);
+    child.on('exit', (code, signal) => resolve(code ?? (signal ? 1 : 0)));
+  });
 }
 
 async function profileCommand(argv) {
