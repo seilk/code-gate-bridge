@@ -22,7 +22,8 @@ Commands:
   serve <profile> [--port PORT] [--show-token]
   run <profile> [claude args]
   <profile> [claude args]       Launch a profile directly, e.g. cgb gateway-gpt-4.1 --bare
-  agents [claude args]          Open Claude Code Agent View (forwards to 'claude agents')
+  agents [claude args]          Open Claude Code Agent View (forwards to 'claude agents';
+                                set CGB_CLAUDE_BIN to override the resolved claude binary)
   doctor <profile>
   route-test <profile> [--prompt TEXT]
   status
@@ -53,7 +54,7 @@ export async function agentsCommand(argv = [], options = {}) {
   process.exitCode = await new Promise((resolve, reject) => {
     const child = spawn(claudeBin, ['agents', ...argv], { stdio, env });
     child.on('error', reject);
-    child.on('exit', (code) => resolve(code || 0));
+    child.on('exit', (code, signal) => resolve(code ?? (signal ? 1 : 0)));
   });
 }
 
