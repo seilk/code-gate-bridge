@@ -48,6 +48,19 @@ test('statusline keeps context window usage with base command output', async () 
   assert.equal(out.stdout.trim(), '[CGB gateway → gpt-4.1] widgets ctx 5% 10k/200k');
 });
 
+test('statusline prefers CGB profile context window over Claude-reported default', async () => {
+  const input = JSON.stringify({ context_window: { total_input_tokens: 10000, total_output_tokens: 0, context_window_size: 200000, used_percentage: 5 } });
+  const out = await renderStatusline(input, { CGB_DISPLAY_MODEL: 'CGB gateway → provider-large-model', CGB_CONTEXT_WINDOW: '1050000' });
+  assert.equal(out.stdout.trim(), '[CGB gateway → provider-large-model] ctx 1% 10k/1.1M');
+});
+
+test('statusline replaces chained HUD context with CGB profile context window', async () => {
+  const input = JSON.stringify({ context_window: { total_input_tokens: 10000, total_output_tokens: 0, context_window_size: 200000, used_percentage: 5 } });
+  const base = `printf 'repo\\nContext █░░░░░░░░░ 5%% 10k/200k'`;
+  const out = await renderStatusline(input, { CGB_DISPLAY_MODEL: 'CGB gateway → provider-large-model', CGB_CONTEXT_WINDOW: '1050000', CGB_BASE_STATUSLINE_COMMAND: base });
+  assert.equal(out.stdout.trim(), '[CGB gateway → provider-large-model] repo\nContext █░░░░░░░░░ 1% 10k/1.1M');
+});
+
 test('statusline wraps multiline user HUD and updates its context bar from Claude input', async () => {
   const input = JSON.stringify({ context_window: { total_input_tokens: 10000, total_output_tokens: 0, context_window_size: 200000 } });
   const base = `printf 'repo\\nContext ░░░░░░░░░░ 0%%'`;

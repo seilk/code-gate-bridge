@@ -5,23 +5,38 @@ import { spawn } from 'node:child_process';
 import { readProfile } from './config.js';
 import { listenProxy, preflightUpstream } from './proxy.js';
 import { shellQuote } from './shell.js';
+import { startManagedProxy } from './managed-proxy.js';
+import { managedSettingsPath } from './paths.js';
 
 export async function runClaude(profileName, args = [], options = {}) {
   const env = options.env || process.env;
   const profile = await readProfile(profileName, env);
   if (options.preflight !== false && env.CGB_SKIP_PREFLIGHT !== '1') await preflightUpstream(profile, env);
-  const proxy = await listenProxy(profile, { env });
-  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'cgb-claude-'));
-  const settingsPath = path.join(tmp, 'settings.json');
+  const managedProxy = useManagedProxy(args, env, options);
+  const proxy = managedProxy ? await startManagedProxy(profileName, { env, showToken: true }) : await listenProxy(profile, { env });
+  const tmp = managedProxy ? '' : await fs.mkdtemp(path.join(os.tmpdir(), 'cgb-claude-'));
+  const settingsPath = managedProxy ? managedSettingsPath(env) : path.join(tmp, 'settings.json');
   const baseStatusLineCommand = options.baseStatusLineCommand ?? (env.CGB_CHAIN_BASE_STATUSLINE === '1' ? await readUserStatusLineCommand(env) : '');
   const generated = buildClaudeSettings(profile, proxy, env, { baseStatusLineCommand });
   await fs.writeFile(settingsPath, `${JSON.stringify(generated.settings, null, 2)}\n`, { mode: 0o600 });
+  await fs.chmod(settingsPath, 0o600).catch(() => {});
   return await new Promise((resolve, reject) => {
-    const cleanup = async () => { proxy.server.close(); await fs.rm(tmp, { recursive: true, force: true }); };
+    const cleanup = async () => {
+      if (!managedProxy) {
+        proxy.server.close();
+        await fs.rm(tmp, { recursive: true, force: true });
+      }
+    };
     const child = spawn(options.claudeBin || 'claude', buildClaudeArgs(settingsPath, generated, args), { stdio: 'inherit', env: { ...env, ...generated.env } });
     child.on('error', async (error) => { await cleanup(); reject(error); });
     child.on('exit', async (code) => { await cleanup(); resolve(code || 0); });
   });
+}
+
+function useManagedProxy(args, env, options) {
+  if (options.managedProxy === true || env.CGB_MANAGED_PROXY === '1' || env.CGB_PROXY_MODE === 'managed') return true;
+  if (options.managedProxy === false || env.CGB_MANAGED_PROXY === '0' || env.CGB_PROXY_MODE === 'temporary') return false;
+  return args[0] === 'agents' || args.includes('--bg');
 }
 
 export function buildClaudeSettings(profile, proxy, env = process.env, options = {}) {
@@ -35,6 +50,7 @@ export function buildClaudeSettings(profile, proxy, env = process.env, options =
       ANTHROPIC_AUTH_TOKEN: proxy.token,
       ANTHROPIC_MODEL: claudeModelSelector,
       CLAUDE_CODE_AUTO_COMPACT_WINDOW: String(profile.context_window),
+      CGB_CONTEXT_WINDOW: String(profile.context_window),
       CGB_DISPLAY_MODEL: routeDisplay,
       ...(profile.reasoning_effort ? { CGB_PROFILE_EFFORT: String(profile.reasoning_effort) } : {}),
       CGB_BASE_STATUSLINE_COMMAND: baseStatus

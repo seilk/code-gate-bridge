@@ -7,7 +7,7 @@ import { stripControls } from './redact.js';
 export async function renderStatusline(input, env = process.env) {
   const display = truncate(env.CGB_DISPLAY_MODEL || env.CPK_DISPLAY_MODEL || env.CCS_DISPLAY_MODEL || await observedModel(env));
   const status = parseStatusInput(input);
-  const context = renderContextSegment(await contextWindowForStatus(status));
+  const context = renderContextSegment(await contextWindowForStatus(status, env));
   let forwarded = input;
   if (display && status) {
     const data = { ...status };
@@ -107,12 +107,13 @@ function parseStatusInput(input) {
   } catch { return null; }
 }
 
-async function contextWindowForStatus(status) {
+async function contextWindowForStatus(status, env = process.env) {
   const context = status?.context_window;
-  if (hasContextUsage(context)) return context;
+  const profileWindowSize = profileContextWindowSize(env);
+  if (hasContextUsage(context)) return normalizeContextWindow(context, profileWindowSize);
   const transcriptUsage = await latestTranscriptUsage(status?.transcript_path);
-  if (!transcriptUsage) return context;
-  const windowSize = numeric(context?.context_window_size);
+  if (!transcriptUsage) return normalizeContextWindow(context, profileWindowSize);
+  const windowSize = Number.isFinite(profileWindowSize) ? profileWindowSize : numeric(context?.context_window_size);
   const inputTokens = numeric(transcriptUsage.input_tokens) || 0;
   const outputTokens = numeric(transcriptUsage.output_tokens) || 0;
   const usedTokens = inputTokens + outputTokens;
@@ -124,6 +125,28 @@ async function contextWindowForStatus(status) {
     ...(Number.isFinite(windowSize) && windowSize > 0 ? { context_window_size: windowSize } : {}),
     ...(Number.isFinite(usedPct) ? { used_percentage: usedPct } : {})
   };
+}
+
+function normalizeContextWindow(context, profileWindowSize) {
+  if (!context || typeof context !== 'object') return context;
+  if (!Number.isFinite(profileWindowSize) || profileWindowSize <= 0) return context;
+  const inputTokens = numeric(context.total_input_tokens);
+  const outputTokens = numeric(context.total_output_tokens);
+  const usedTokens = safeTokenSum(inputTokens, outputTokens);
+  const usedPct = Number.isFinite(usedTokens) ? (usedTokens / profileWindowSize) * 100 : NaN;
+  const next = {
+    ...context,
+    context_window_size: profileWindowSize
+  };
+  if (Number.isFinite(usedPct)) {
+    next.used_percentage = usedPct;
+    delete next.current_usage;
+  }
+  return next;
+}
+
+function profileContextWindowSize(env) {
+  return numeric(env.CGB_CONTEXT_WINDOW || env.CPK_CONTEXT_WINDOW || env.CCS_CONTEXT_WINDOW);
 }
 
 function hasContextUsage(context) {

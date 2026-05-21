@@ -47,6 +47,14 @@ export function statePath(env = process.env) {
   return path.join(stateDir(env), 'state.json');
 }
 
+export function proxyStatePath(env = process.env) {
+  return path.join(stateDir(env), 'proxy.json');
+}
+
+export function managedSettingsPath(env = process.env) {
+  return path.join(stateDir(env), 'managed-settings.json');
+}
+
 export function logPath(env = process.env) {
   return path.join(stateDir(env), 'events.jsonl');
 }
