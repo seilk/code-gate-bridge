@@ -99,9 +99,13 @@ Creates local user files only:
 ~/.config/code-gate-bridge/profiles/*.json
 ~/.local/state/code-gate-bridge/state.json
 ~/.local/state/code-gate-bridge/events.jsonl
+~/.local/state/code-gate-bridge/proxy.json
+~/.local/state/code-gate-bridge/managed-settings.json
 ```
 
 `cgb run` and `cgb <profile>` create a temporary Claude Code settings file for that process and point Claude Code at a local proxy. They do not require putting provider API keys in `~/.claude/settings.json`.
+
+Managed proxy mode keeps a local proxy URL, bearer token, and Claude Code settings file under CGB state so background or agent workflows can reconnect after the foreground TUI exits.
 
 ## Commands
 
@@ -114,7 +118,12 @@ cgb profile show            Show a profile with inline secrets redacted
 cgb profile export          Export a profile as JSON or YAML
 cgb profile import          Import a profile from JSON or YAML
 cgb serve                   Start a local proxy for manual integration
+cgb proxy start             Start a managed restartable local proxy
+cgb proxy stop              Stop the managed proxy
+cgb proxy restart           Restart the managed proxy on the same URL/token
+cgb proxy status            Show managed proxy state
 cgb run                     Launch Claude Code through a profile
+cgb run --managed-proxy     Launch Claude Code through the managed proxy
 cgb <profile>               Launch a profile directly, forwarding Claude Code flags
 cgb agents                  Open Claude Code Agent View (forwards to `claude agents`)
                             `agents` is reserved; profiles named `agents` are shadowed.
@@ -125,6 +134,24 @@ cgb status                  Show last observed proxy state
 ```
 
 `cgb serve` hides the local bearer token by default. Use `--show-token` only for manual debugging.
+
+## Managed proxy mode
+
+The default `cgb run` path starts a local proxy for the lifetime of that launched Claude Code process. That is ideal for ordinary foreground sessions. For long-lived Claude Code Agent View or background jobs, use the managed proxy so retries can keep using the same local URL and token:
+
+```bash
+cgb proxy start <profile>
+cgb proxy status
+cgb run --managed-proxy <profile> agents
+```
+
+`cgb <profile> agents` and Claude Code `--bg` launches automatically use managed proxy mode. If the managed proxy process exits while a background job still exists, restart it:
+
+```bash
+cgb proxy restart
+```
+
+`restart` reuses the stored port and token from `proxy.json`, so clients that already have that local URL can reconnect. Use `cgb proxy stop` when you no longer want the managed proxy running. The token is stored in a `0600` state file and hidden from `status` output unless you pass `--show-token`.
 
 ## Managing profiles as JSON or YAML
 
@@ -265,6 +292,28 @@ The `context_window` field is the limit CGB passes to Claude Code. To fix it, re
 cgb profile create <profile> --base-url <provider-v1-url> --model <upstream-model> --key-env <ENV_NAME> --format yaml --context-window <tokens>
 cgb <profile>
 ```
+
+### Background job reports ConnectionRefused
+
+If a Claude Code background job points at a local CGB URL whose proxy has exited, it can report:
+
+```text
+API Error: Unable to connect to API (ConnectionRefused)
+```
+
+Check the managed proxy state:
+
+```bash
+cgb proxy status
+```
+
+If the job was launched with managed proxy mode, restart the proxy on the same local URL/token:
+
+```bash
+cgb proxy restart
+```
+
+If the job was launched with the default temporary proxy, the old local token was not persisted. Start a fresh CGB session or relaunch the job with managed proxy mode.
 
 ### API key missing
 
