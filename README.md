@@ -40,6 +40,8 @@ cgb my-provider-gpt-4.1
 
 `my-provider-gpt-4.1` is only an example profile name. Prefer profile names in the form `<provider>-<upstream-model>`, preserving provider-recognized model names when valid, for example `openrouter-gpt-4.1`, `gateway-gemini-3-flash-preview`, or `local-qwen3-coder`.
 
+The `--base-url` value must be the provider's OpenAI-compatible API root, not just the provider's domain. CGB appends `/chat/completions` for the current transport. For example, use `https://api.example.com/v1` when the real upstream endpoint is `https://api.example.com/v1/chat/completions`.
+
 For multiple models on the same provider, create one profile per upstream model:
 
 ```bash
@@ -71,6 +73,23 @@ The generic path is always available:
 cgb profile create <profile> --base-url <provider-v1-url> --model <upstream-model> --key-env <ENV_NAME>
 ```
 
+Presets are the safer path when available because they avoid subtle URL mistakes and fill in known credential names and capability defaults.
+
+## Provider URLs and model limits
+
+For OpenAI-compatible providers, `--base-url` should be the API root that contains `/chat/completions`, usually a URL ending in `/v1`. Do not use only the provider's public web domain unless that is also its API root.
+
+```bash
+cgb profile create gateway-large-context \
+  --base-url https://api.example.com/v1 \
+  --model provider-large-model \
+  --key-env PROVIDER_API_KEY \
+  --format yaml \
+  --context-window 1000000
+```
+
+CGB will call `https://api.example.com/v1/chat/completions` for that profile. `context_window` controls Claude Code's generated `autoCompactWindow` setting and the statusline denominator. CGB does not currently discover model context limits from the provider at runtime, so set this per profile from the provider's model documentation when the default is wrong.
+
 ## What this changes on your machine
 
 Creates local user files only:
@@ -100,7 +119,7 @@ cgb <profile>               Launch a profile directly, forwarding Claude Code fl
 cgb agents                  Open Claude Code Agent View (forwards to `claude agents`)
                             `agents` is reserved; profiles named `agents` are shadowed.
                             Set `CGB_CLAUDE_BIN` to override the resolved claude binary.
-cgb doctor                  Validate profile/config basics
+cgb doctor                  Validate profile/config basics and computed upstream endpoint
 cgb route-test              Send a real request through the local proxy
 cgb status                  Show last observed proxy state
 ```
@@ -152,7 +171,9 @@ retry:
 
 The built-in YAML reader intentionally supports a small safe subset: nested mappings and scalar strings/numbers/booleans/null. It rejects arrays, anchors, aliases, and flow-style YAML instead of guessing. Secrets should still live in `secrets.env`; `profile show` and `profile export` redact inline `api_key` values.
 
-`reasoning_effort` is optional and becomes the default OpenAI-compatible `reasoning_effort` sent upstream. Claude Code's in-TUI `/effort` command still works under CGB and overrides this profile default per request. For Letsur `gpt-5.5`, use `low`, `medium`, `high`, or `xhigh`; Claude Code's `max` is translated to `xhigh` because Letsur rejects `reasoning_effort: max`.
+`context_window` is the context limit CGB tells Claude Code to use for auto-compaction and statusline display. It should match the effective upstream model window for that profile. If the statusline shows an unexpected limit such as `200k`, update the profile with `--context-window <tokens>` and restart the CGB-launched Claude Code session.
+
+`reasoning_effort` is optional and becomes the default OpenAI-compatible `reasoning_effort` sent upstream. Claude Code's in-TUI `/effort` command still works under CGB and overrides this profile default per request. Use values supported by your upstream provider; CGB translates Claude Code's `max` effort to `xhigh` for OpenAI-compatible requests.
 
 `visible_model` is the model ID CGB returns in Anthropic-compatible responses. `client_model` is the Claude Code selector passed to the Claude Code CLI, normally `opus`, so Claude Code accepts the launch while CGB routes to the real upstream model.
 
@@ -213,6 +234,37 @@ cgb status
 ```
 
 The `upstream_model` in state/logs is the real provider model. Claude Code may still display its client compatibility model.
+
+### Route test returns 404 from upstream
+
+Check the upstream endpoint that `cgb doctor` reports:
+
+```bash
+cgb doctor <profile>
+```
+
+For OpenAI-compatible profiles, CGB sends requests to:
+
+```text
+<base_url>/chat/completions
+```
+
+If your provider documents `/v1/chat/completions`, the profile `base_url` must include `/v1`. If the profile omits that path prefix, CGB may call the wrong endpoint and the provider can return `404 Not Found`. Prefer a built-in preset when one exists for your provider.
+
+### Statusline shows the wrong context limit
+
+Inspect the profile:
+
+```bash
+cgb profile show <profile> --format yaml
+```
+
+The `context_window` field is the limit CGB passes to Claude Code. To fix it, recreate or edit the profile with the correct token count from your provider's model documentation, then start a new CGB session:
+
+```bash
+cgb profile create <profile> --base-url <provider-v1-url> --model <upstream-model> --key-env <ENV_NAME> --format yaml --context-window <tokens>
+cgb <profile>
+```
 
 ### API key missing
 
