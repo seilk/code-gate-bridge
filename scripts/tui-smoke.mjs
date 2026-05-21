@@ -12,6 +12,7 @@ if (!profile) {
   process.exit(2);
 }
 const expected = process.env.CGB_TUI_EXPECTED || 'CGB_TUI_SMOKE_OK';
+const expectedContextLimit = process.env.CGB_TUI_EXPECTED_CONTEXT_LIMIT || '';
 const session = `cgb_tui_smoke_${process.pid}`;
 const capturePath = path.join(os.tmpdir(), `${session}.txt`);
 const debugPath = path.join(os.tmpdir(), `${session}.debug.log`);
@@ -58,7 +59,7 @@ async function acceptKnownStartupPrompts(routePrefix, timeoutMs = 15000) {
   while (Date.now() < deadline) {
     const screen = capture();
     if (hasRouteStatusline(screen, routePrefix) || screen.includes('custom API key')) return;
-    if (/Allow external CLAUDE\.md file imports\?|Do you trust the files in this folder\?/i.test(screen)) {
+    if (/Allow external CLAUDE\.md file imports\?|Do you trust the files in this folder\?|Quick safety check: Is this a project you created or one you trust\?|Yes, I trust this folder/i.test(screen)) {
       run('tmux', ['send-keys', '-t', session, 'Enter']);
       await sleep(1000);
       continue;
@@ -77,6 +78,18 @@ function hasContextSegment(screen, routePrefix) {
   if (routeLineIndex < 0) return false;
   if (lines[routeLineIndex].includes(' ctx ')) return true;
   return lines.slice(routeLineIndex + 1, routeLineIndex + 4).some((line) => /\bContext\b|\bctx[:\s]/i.test(line));
+}
+
+function contextWindowLines(screen, routePrefix) {
+  const lines = screen.split('\n');
+  const routeLineIndex = lines.findIndex((line) => line.trimStart().startsWith(`[${routePrefix}`));
+  if (routeLineIndex < 0) return [];
+  return lines.slice(routeLineIndex, routeLineIndex + 4).filter((line) => /\bContext\b|\bctx[:\s]/i.test(line));
+}
+
+function hasExpectedContextLimit(screen, routePrefix, expectedLimit) {
+  if (!expectedLimit) return true;
+  return contextWindowLines(screen, routePrefix).some((line) => line.includes(expectedLimit));
 }
 
 function occurrenceCount(text, needle) {
@@ -107,6 +120,10 @@ try {
     fs.writeFileSync(capturePath, initial);
     throw new Error(`CGB statusline did not preserve context window usage; capture saved to ${capturePath}`);
   }
+  if (!hasExpectedContextLimit(initial, routePrefix, expectedContextLimit)) {
+    fs.writeFileSync(capturePath, initial);
+    throw new Error(`CGB statusline did not show expected context limit ${expectedContextLimit}; capture saved to ${capturePath}`);
+  }
   const initialDebug = fs.existsSync(debugPath) ? fs.readFileSync(debugPath, 'utf8') : '';
   if (!/StatusLine \[.*bin\/cgb\.js.*statusline/.test(initialDebug)) {
     fs.writeFileSync(capturePath, initial);
@@ -127,6 +144,10 @@ try {
     if (!hasContextSegment(finalScreen, routePrefix)) {
       fs.writeFileSync(capturePath, finalScreen);
       throw new Error(`CGB context window usage disappeared after reply; capture saved to ${capturePath}`);
+    }
+    if (!hasExpectedContextLimit(finalScreen, routePrefix, expectedContextLimit)) {
+      fs.writeFileSync(capturePath, finalScreen);
+      throw new Error(`CGB statusline did not show expected context limit ${expectedContextLimit} after reply; capture saved to ${capturePath}`);
     }
     if (occurrenceCount(finalScreen, expected) < 2) {
       fs.writeFileSync(capturePath, finalScreen);
