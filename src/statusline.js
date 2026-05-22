@@ -7,7 +7,7 @@ import { stripControls } from './redact.js';
 export async function renderStatusline(input, env = process.env) {
   const display = truncate(env.CGB_DISPLAY_MODEL || env.CPK_DISPLAY_MODEL || env.CCS_DISPLAY_MODEL || await observedModel(env));
   const status = parseStatusInput(input);
-  const context = renderContextSegment(await contextWindowForStatus(status));
+  const context = renderContextSegment(await contextWindowForStatus(status, env));
   let forwarded = input;
   if (display && status) {
     const data = { ...status };
@@ -19,7 +19,7 @@ export async function renderStatusline(input, env = process.env) {
     const depth = Number(env.CGB_STATUSLINE_DEPTH || 0);
     if (depth > 2) return { stdout: '[cgb: statusline recursion]\n', stderr: '', status: 0 };
     const result = spawnSync('/bin/bash', ['-lc', base], { input: forwarded, encoding: 'utf8', env: { ...process.env, ...env, CGB_STATUSLINE_DEPTH: String(depth + 1) }, maxBuffer: 1024 * 1024, timeout: Number(env.CGB_STATUSLINE_TIMEOUT_MS || 1000) });
-    if (result.error) return { stdout: `[cgb: statusline ${result.error.code || 'error'}]\n`, stderr: '', status: 0 };
+    if (result.error && typeof result.status !== 'number') return { stdout: `[cgb: statusline ${result.error.code || 'error'}]\n`, stderr: '', status: 0 };
     return { stdout: mergeStatusline(display, result.stdout, context), stderr: result.stderr || '', status: result.status ?? 0 };
   }
   const model = display || 'cgb: no route observed';
@@ -107,12 +107,14 @@ function parseStatusInput(input) {
   } catch { return null; }
 }
 
-async function contextWindowForStatus(status) {
-  const context = status?.context_window;
+async function contextWindowForStatus(status, env = process.env) {
+  const context = contextWithProfileWindow(status?.context_window, env);
   if (hasContextUsage(context)) return context;
   const transcriptUsage = await latestTranscriptUsage(status?.transcript_path);
   if (!transcriptUsage) return context;
-  const windowSize = numeric(context?.context_window_size);
+  const reportedWindowSize = numeric(context?.context_window_size);
+  const configuredWindowSize = configuredContextWindow(env);
+  const windowSize = Number.isFinite(reportedWindowSize) && reportedWindowSize > 0 ? reportedWindowSize : configuredWindowSize;
   const inputTokens = numeric(transcriptUsage.input_tokens) || 0;
   const outputTokens = numeric(transcriptUsage.output_tokens) || 0;
   const usedTokens = inputTokens + outputTokens;
@@ -124,6 +126,27 @@ async function contextWindowForStatus(status) {
     ...(Number.isFinite(windowSize) && windowSize > 0 ? { context_window_size: windowSize } : {}),
     ...(Number.isFinite(usedPct) ? { used_percentage: usedPct } : {})
   };
+}
+
+function contextWithProfileWindow(context, env) {
+  const configured = configuredContextWindow(env);
+  if (!Number.isFinite(configured) || configured <= 0) return context;
+  if (!context || typeof context !== 'object') return context;
+  const source = context && typeof context === 'object' ? context : {};
+  const reported = numeric(source.context_window_size);
+  if (Number.isFinite(reported) && reported >= configured) return context;
+  const next = { ...source, context_window_size: configured };
+  if (Number.isFinite(safeTokenSum(numeric(next.total_input_tokens), numeric(next.total_output_tokens)))) {
+    delete next.used_percentage;
+    delete next.remaining_percentage;
+    delete next.current_usage;
+  }
+  return next;
+}
+
+function configuredContextWindow(env) {
+  const configured = numeric(env.CGB_CONTEXT_WINDOW || env.CPK_CONTEXT_WINDOW || env.CCS_CONTEXT_WINDOW);
+  return Number.isFinite(configured) && configured > 0 ? configured : NaN;
 }
 
 function hasContextUsage(context) {

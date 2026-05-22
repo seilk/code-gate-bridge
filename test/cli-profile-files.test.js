@@ -70,7 +70,7 @@ test('CLI launches a profile directly without shell aliases or -- separator', as
   const launched = run(['gateway-gpt-4.1', '--bare', '-p', 'hi'], env);
   assert.equal(launched.status, 0, launched.stderr);
   const observed = JSON.parse(launched.stdout.trim());
-  assert.deepEqual(observed.argv.slice(0, 8), ['--setting-sources', 'user,project,local', '--settings', observed.argv[3], '--model', 'opus', '--bare', '-p']);
+  assert.deepEqual(observed.argv.slice(0, 8), ['--setting-sources', 'user,project,local', '--settings', observed.argv[3], '--model', 'claude-opus-4-7', '--bare', '-p']);
   assert.equal(observed.argv.at(-1), 'hi');
   assert.equal(observed.auth, 'set');
   assert.equal(observed.apiKey, null);
