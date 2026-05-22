@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { buildClaudeArgs, buildClaudeSettings, readUserStatusLineCommand } from '../src/launcher.js';
+import { buildClaudeArgs, buildClaudeSettings, claudeModelSelectorForProfile, readUserStatusLineCommand } from '../src/launcher.js';
 
 test('launcher separates Claude settings from process env and route display', () => {
   const settings = buildClaudeSettings({
@@ -14,11 +14,12 @@ test('launcher separates Claude settings from process env and route display', ()
     reasoning_effort: 'xhigh',
     upstream: { model: 'gpt-4.1' }
   }, { url: 'http://127.0.0.1:12345', token: 'local-token' }, {});
-  assert.equal(settings.model, 'opus');
+  assert.equal(settings.model, 'claude-opus-4-7');
   assert.equal(settings.env.ANTHROPIC_AUTH_TOKEN, 'local-token');
   assert.equal(settings.env.ANTHROPIC_API_KEY, undefined);
-  assert.equal(settings.env.ANTHROPIC_MODEL, 'opus');
+  assert.equal(settings.env.ANTHROPIC_MODEL, 'claude-opus-4-7');
   assert.equal(settings.env.ANTHROPIC_DEFAULT_OPUS_MODEL, undefined);
+  assert.equal(settings.env.CGB_CONTEXT_WINDOW, '1000000');
   assert.equal(settings.env.CGB_DISPLAY_MODEL, 'CGB gateway → gpt-4.1');
   assert.equal(settings.env.CGB_PROFILE_EFFORT, 'xhigh');
   assert.equal(settings.sessionName, undefined);
@@ -26,6 +27,36 @@ test('launcher separates Claude settings from process env and route display', ()
   assert.equal(settings.settings.statusLine.padding, 0);
   assert.match(settings.settings.statusLine.command, /bin\/cgb\.js' statusline$/);
   assert.equal(JSON.stringify(settings.settings).includes('ANTHROPIC_AUTH_TOKEN'), false);
+});
+
+test('launcher uses full visible model for long-context Claude compatibility models', () => {
+  assert.equal(claudeModelSelectorForProfile({
+    name: 'gateway',
+    visible_model: 'claude-opus-4-7',
+    client_model: 'opus',
+    context_window: 1000000,
+    upstream: { model: 'gpt-5.5' }
+  }, {}), 'claude-opus-4-7');
+});
+
+test('launcher preserves short client model aliases for standard context profiles', () => {
+  assert.equal(claudeModelSelectorForProfile({
+    name: 'gateway',
+    visible_model: 'claude-opus-4-7',
+    client_model: 'opus',
+    context_window: 200000,
+    upstream: { model: 'gpt-4.1' }
+  }, {}), 'opus');
+});
+
+test('launcher respects explicit model selector override', () => {
+  assert.equal(claudeModelSelectorForProfile({
+    name: 'gateway',
+    visible_model: 'claude-opus-4-7',
+    client_model: 'opus',
+    context_window: 1000000,
+    upstream: { model: 'gpt-5.5' }
+  }, { CGB_CLAUDE_MODEL_SELECTOR: 'sonnet' }), 'sonnet');
 });
 
 test('launcher does not hijack Claude Code session name', () => {

@@ -22,6 +22,11 @@ test('statusline default output includes cgb route display', async () => {
   assert.equal(out.stdout.trim(), '[CGB gateway → gpt-4.1]');
 });
 
+test('statusline does not invent context usage from profile window alone', async () => {
+  const out = await renderStatusline('{}', { CGB_DISPLAY_MODEL: 'CGB gateway → gpt-5.5', CGB_CONTEXT_WINDOW: '1050000' });
+  assert.equal(out.stdout.trim(), '[CGB gateway → gpt-5.5]');
+});
+
 test('statusline default CGB HUD shows profile effort, cwd, and context without plain Claude model badge', async () => {
   const input = JSON.stringify({ cwd: '/Users/seil/llmwiki', gitBranch: 'main', context_window: { total_input_tokens: 0, total_output_tokens: 0, context_window_size: 1000000 } });
   const out = await renderStatusline(input, { CGB_DISPLAY_MODEL: 'CGB letsur-gpt-5.5 → gpt-5.5', CGB_PROFILE_EFFORT: 'xhigh' });
@@ -40,6 +45,32 @@ test('statusline preserves context window usage when replacing Claude Code statu
   });
   const out = await renderStatusline(input, { CGB_DISPLAY_MODEL: 'CGB gateway → gpt-4.1' });
   assert.equal(out.stdout.trim(), '[CGB gateway → gpt-4.1] ctx 13% 130k/1M');
+});
+
+test('statusline uses CGB profile context window when Claude reports compatibility-model size', async () => {
+  const input = JSON.stringify({
+    context_window: {
+      total_input_tokens: 10000,
+      total_output_tokens: 0,
+      context_window_size: 200000,
+      used_percentage: 5
+    }
+  });
+  const out = await renderStatusline(input, { CGB_DISPLAY_MODEL: 'CGB gateway → gpt-5.5', CGB_CONTEXT_WINDOW: '1050000' });
+  assert.equal(out.stdout.trim(), '[CGB gateway → gpt-5.5] ctx 1% 10k/1.1M');
+});
+
+test('statusline recomputes current_usage when applying CGB profile context window', async () => {
+  const input = JSON.stringify({
+    context_window: {
+      total_input_tokens: 10000,
+      total_output_tokens: 0,
+      context_window_size: 200000,
+      current_usage: 5
+    }
+  });
+  const out = await renderStatusline(input, { CGB_DISPLAY_MODEL: 'CGB gateway → gpt-5.5', CGB_CONTEXT_WINDOW: '1050000' });
+  assert.equal(out.stdout.trim(), '[CGB gateway → gpt-5.5] ctx 1% 10k/1.1M');
 });
 
 test('statusline keeps context window usage with base command output', async () => {
@@ -103,6 +134,15 @@ test('statusline falls back to transcript usage when Claude context_window has n
   const base = `printf 'repo\\nContext ░░░░░░░░░░ 0%%'`;
   const out = await renderStatusline(input, { CGB_DISPLAY_MODEL: 'CGB gateway → gpt-5.5', CGB_BASE_STATUSLINE_COMMAND: base });
   assert.equal(out.stdout.trim(), '[CGB gateway → gpt-5.5] repo\nContext █░░░░░░░░░ 3% 30.1k/1M');
+});
+
+test('statusline uses profile window for transcript fallback when Claude omits context_window', async () => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'cgb-status-transcript-window-'));
+  const transcript = path.join(dir, 'session.jsonl');
+  await fs.writeFile(transcript, JSON.stringify({ type: 'assistant', message: { usage: { input_tokens: 30063, output_tokens: 6 } } }));
+  const input = JSON.stringify({ transcript_path: transcript });
+  const out = await renderStatusline(input, { CGB_DISPLAY_MODEL: 'CGB gateway → gpt-5.5', CGB_CONTEXT_WINDOW: '1050000' });
+  assert.equal(out.stdout.trim(), '[CGB gateway → gpt-5.5] ctx 2.9% 30.1k/1.1M');
 });
 
 test('statusline does not combine inconsistent reported percentage with cumulative token counts', async () => {

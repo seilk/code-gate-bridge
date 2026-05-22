@@ -27,7 +27,7 @@ export async function runClaude(profileName, args = [], options = {}) {
 export function buildClaudeSettings(profile, proxy, env = process.env, options = {}) {
   const statuslineScript = new URL('../bin/cgb.js', import.meta.url).pathname;
   const baseStatus = env.CGB_BASE_STATUSLINE_COMMAND || env.CPK_BASE_STATUSLINE_COMMAND || env.CCS_BASE_STATUSLINE_COMMAND || options.baseStatusLineCommand || '';
-  const claudeModelSelector = env.CGB_CLAUDE_MODEL_SELECTOR || env.CPK_CLAUDE_MODEL_SELECTOR || profile.client_model || 'opus';
+  const claudeModelSelector = claudeModelSelectorForProfile(profile, env);
   const routeDisplay = routeLabel(profile);
   return {
     env: {
@@ -35,6 +35,7 @@ export function buildClaudeSettings(profile, proxy, env = process.env, options =
       ANTHROPIC_AUTH_TOKEN: proxy.token,
       ANTHROPIC_MODEL: claudeModelSelector,
       CLAUDE_CODE_AUTO_COMPACT_WINDOW: String(profile.context_window),
+      CGB_CONTEXT_WINDOW: String(profile.context_window),
       CGB_DISPLAY_MODEL: routeDisplay,
       ...(profile.reasoning_effort ? { CGB_PROFILE_EFFORT: String(profile.reasoning_effort) } : {}),
       CGB_BASE_STATUSLINE_COMMAND: baseStatus
@@ -45,6 +46,22 @@ export function buildClaudeSettings(profile, proxy, env = process.env, options =
       statusLine: { type: 'command', command: `node ${shellQuote(statuslineScript)} statusline`, padding: 0 }
     }
   };
+}
+
+export function claudeModelSelectorForProfile(profile, env = process.env) {
+  const explicit = env.CGB_CLAUDE_MODEL_SELECTOR || env.CPK_CLAUDE_MODEL_SELECTOR;
+  if (explicit) return explicit;
+  if (shouldUseVisibleModelForContext(profile)) return profile.visible_model;
+  return profile.client_model || profile.visible_model || 'opus';
+}
+
+function shouldUseVisibleModelForContext(profile) {
+  const contextWindow = Number(profile.context_window);
+  const visibleModel = String(profile.visible_model || '');
+  const clientModel = String(profile.client_model || '');
+  if (!Number.isFinite(contextWindow) || contextWindow <= 200000) return false;
+  if (!visibleModel.startsWith('claude-')) return false;
+  return !clientModel || ['opus', 'sonnet', 'haiku'].includes(clientModel);
 }
 
 export function buildClaudeArgs(settingsPath, generated, userArgs = []) {

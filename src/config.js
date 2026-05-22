@@ -93,7 +93,7 @@ export function normalizeProfile(profile) {
     name,
     provider: provider.id,
     visible_model: String(profile.visible_model),
-    client_model: String(profile.client_model || 'opus'),
+    client_model: String(profile.client_model || profile.visible_model || 'opus'),
     context_window: Number(profile.context_window || 200000),
     max_output_tokens: Number(profile.max_output_tokens || 8192),
     ...(profile.reasoning_effort === undefined ? {} : { reasoning_effort: normalizeReasoningEffort(profile.reasoning_effort) }),
